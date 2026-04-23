@@ -46,7 +46,7 @@ const commands = [
     new SlashCommandBuilder().setName('indexpanel').setDescription('Spawn index ticket panel').setDefaultMemberPermissions(PermissionFlagsBits.Administrator).toJSON(),
     new SlashCommandBuilder().setName('ticketcategory').setDescription('Set MM ticket category').setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addStringOption(o => o.setName('id').setDescription('Category ID').setRequired(true)).toJSON(),
     new SlashCommandBuilder().setName('indexcategory').setDescription('Set index ticket category').setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addStringOption(o => o.setName('id').setDescription('Category ID').setRequired(true)).toJSON(),
-    new SlashCommandBuilder().setName('say').setDescription('Send message as bot').setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addChannelOption(o => o.setName('channel').setDescription('Target channel').setRequired(true).addChannelTypes(ChannelType.GuildText)).addStringOption(o => o.setName('message').setDescription('Message').setRequired(true)).addStringOption(o => o.setName('ping').setDescription('Optional ping').setRequired(false).addChoices({name:'@everyone',value:'everyone'},{name:'@here',value:'here'})).toJSON()
+    new SlashCommandBuilder().setName('say').setDescription('Send message as bot').setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addChannelOption(o => o.setName('channel').setDescription('Target channel').setRequired(true).addChannelTypes(ChannelType.GuildText)).addStringOption(o => o.setName('message').setDescription('Message').setRequired(true)).addStringOption(o => o.setName('ping').setDescription('Optional ping').setRequired(false).addChoices({name:'@everyone',value:'everyone'},{name:'@here',value:'here'})).addStringOption(o => o.setName('embed').setDescription('Send as embed? (y/n)').setRequired(false)).toJSON()
 ];
 
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
@@ -75,14 +75,14 @@ client.on('interactionCreate', async (interaction) => {
         if (interaction.isChatInputCommand()) {
             const { commandName } = interaction;
             if (commandName === 'ticketpanel') {
-                const embed = createPanelEmbed('__D7 ARMY MM__', "Welcome to D7Army Middleman Service.\nPlease wait patiently for support and try not to ping. Our service is trusted by thousands and we hope we could expand our services so we could encourage other people to start middleman service's like us!\n\n• Allowed Ping 1 time\n• Wait patiently\n• Be respectful to staff's/middleman's\n\nAny type of fraud will be taken to extreme level which will cause a instant ban with blacklist from Kooda's, Liam's, Jace's Etc!\n\nThank's for reading this.");
-                const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('spawn_mm').setLabel('Create Ticket').setStyle(ButtonStyle.Success).setEmoji('🎫'));
+                const embed = createPanelEmbed('__D7 ARMY MM__', "Welcome to D7Army Middleman Service.\nPlease wait patiently for support and try not to ping. Our service is trusted by thousands and we hope we could expand our services so we could encourage other people to start middleman service's like us!\n\nâ¢ Allowed Ping 1 time\nâ¢ Wait patiently\nâ¢ Be respectful to staff's/middleman's\n\nAny type of fraud will be taken to extreme level which will cause a instant ban with blacklist from Kooda's, Liam's, Jace's Etc!\n\nThank's for reading this.");
+                const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('spawn_mm').setLabel('Create Ticket').setStyle(ButtonStyle.Success).setEmoji('ð«'));
                 await interaction.reply({ content: 'Panel spawned!', ephemeral: true });
                 await interaction.channel.send({ embeds: [embed], components: [row] });
             }
             else if (commandName === 'indexpanel') {
-                const embed = createPanelEmbed('Indexing Service D7 Army!', "Welcome to our indexing service, we provide with indexes, and base skin's. To purchase a index or a base skin. Create a ticket and wait patiently for answer.\n\n• Always you go first\n• Listen to the middleman\n• Any type of fraud is instant ban\n\nThank's for using our service!");
-                const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('spawn_idx').setLabel('Create Index Ticket').setStyle(ButtonStyle.Success).setEmoji('📋'));
+                const embed = createPanelEmbed('Indexing Service D7 Army!', "Welcome to our indexing service, we provide with indexes, and base skin's. To purchase a index or a base skin. Create a ticket and wait patiently for answer.\n\nâ¢ Always you go first\nâ¢ Listen to the middleman\nâ¢ Any type of fraud is instant ban\n\nThank's for using our service!");
+                const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('spawn_idx').setLabel('Create Index Ticket').setStyle(ButtonStyle.Success).setEmoji('ð'));
                 await interaction.reply({ content: 'Panel spawned!', ephemeral: true });
                 await interaction.channel.send({ embeds: [embed], components: [row] });
             }
@@ -106,9 +106,15 @@ client.on('interactionCreate', async (interaction) => {
                 const ch = interaction.options.getChannel('channel');
                 let msg = interaction.options.getString('message');
                 const ping = interaction.options.getString('ping');
+                const embedOpt = interaction.options.getString('embed');
                 if (ping === 'everyone') msg = '@everyone ' + msg;
                 else if (ping === 'here') msg = '@here ' + msg;
-                await ch.send(msg);
+                if (embedOpt && embedOpt.toLowerCase() === 'y') {
+                    const embed = new EmbedBuilder().setColor(0xFF0000).setDescription(msg).setTimestamp().setFooter({ text: 'D7 Army Service' });
+                    await ch.send({ embeds: [embed] });
+                } else {
+                    await ch.send(msg);
+                }
                 await interaction.reply({ content: `Sent to ${ch}`, ephemeral: true });
             }
         }
@@ -125,8 +131,8 @@ client.on('interactionCreate', async (interaction) => {
             }
             else if (action === 'spawn' && ticketId === 'idx') {
                 const menu = new StringSelectMenuBuilder().setCustomId('idx_select').setPlaceholder('Select service type...').addOptions(
-                    new StringSelectMenuOptionBuilder().setLabel('Index Service').setDescription('Purchase an index').setValue('index').setEmoji('📊'),
-                    new StringSelectMenuOptionBuilder().setLabel('Base Skin').setDescription('Purchase a base skin').setValue('skin').setEmoji('🎨')
+                    new StringSelectMenuOptionBuilder().setLabel('Index Service').setDescription('Purchase an index').setValue('index').setEmoji('ð'),
+                    new StringSelectMenuOptionBuilder().setLabel('Base Skin').setDescription('Purchase a base skin').setValue('skin').setEmoji('ð¨')
                 );
                 await interaction.reply({ content: 'Select service type:', components: [new ActionRowBuilder().addComponents(menu)], ephemeral: true });
             }
@@ -256,10 +262,10 @@ client.on('interactionCreate', async (interaction) => {
                     { id: MIDDLEMAN_ROLE, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
                 ]});
                 const embed = createTicketEmbed(`Ticket ${id}`, [
-                    { name: '👤 Creator', value: `<@${interaction.user.id}>`, inline: true },
-                    { name: '🔗 Other Trader', value: `\`\`\`${trader}\`\`\``, inline: true },
-                    { name: '📝 Description', value: desc },
-                    { name: '✅ Rules', value: rules, inline: true }
+                    { name: 'ð¤ Creator', value: `<@${interaction.user.id}>`, inline: true },
+                    { name: 'ð Other Trader', value: `\`\`\`${trader}\`\`\``, inline: true },
+                    { name: 'ð Description', value: desc },
+                    { name: 'â Rules', value: rules, inline: true }
                 ]);
                 const msg = await ch.send({ content: `<@&${MIDDLEMAN_ROLE}>`, embeds: [embed], components: [createMMBtns(id, false)] });
                 client.tickets.set(id, { channelId: ch.id, messageId: msg.id, creatorId: interaction.user.id, type: 'mm', claimed: false, claimedBy: null, addedUsers: [] });
@@ -297,11 +303,11 @@ client.on('interactionCreate', async (interaction) => {
                     { id: MIDDLEMAN_ROLE, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
                 ]});
                 const embed = createTicketEmbed(`Index Ticket ${id}`, [
-                    { name: '👤 Creator', value: `<@${interaction.user.id}>`, inline: true },
-                    { name: '📊 Type', value: 'Index Service', inline: true },
-                    { name: '🔍 Indexing', value: what },
-                    { name: '💰 Payment', value: pay },
-                    { name: '✅ Go First', value: first, inline: true }
+                    { name: 'ð¤ Creator', value: `<@${interaction.user.id}>`, inline: true },
+                    { name: 'ð Type', value: 'Index Service', inline: true },
+                    { name: 'ð Indexing', value: what },
+                    { name: 'ð° Payment', value: pay },
+                    { name: 'â Go First', value: first, inline: true }
                 ]);
                 const msg = await ch.send({ content: `<@&${MIDDLEMAN_ROLE}>`, embeds: [embed], components: [createIndexBtns(id, false)] });
                 client.tickets.set(id, { channelId: ch.id, messageId: msg.id, creatorId: interaction.user.id, type: 'index', claimed: false, claimedBy: null, addedUsers: [] });
@@ -321,11 +327,11 @@ client.on('interactionCreate', async (interaction) => {
                     { id: MIDDLEMAN_ROLE, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
                 ]});
                 const embed = createTicketEmbed(`Base Skin Ticket ${id}`, [
-                    { name: '👤 Creator', value: `<@${interaction.user.id}>`, inline: true },
-                    { name: '🎨 Type', value: 'Base Skin', inline: true },
-                    { name: '🔍 Looking For', value: which },
-                    { name: '💰 Payment', value: payment },
-                    { name: '✅ Go First', value: agree, inline: true }
+                    { name: 'ð¤ Creator', value: `<@${interaction.user.id}>`, inline: true },
+                    { name: 'ð¨ Type', value: 'Base Skin', inline: true },
+                    { name: 'ð Looking For', value: which },
+                    { name: 'ð° Payment', value: payment },
+                    { name: 'â Go First', value: agree, inline: true }
                 ]);
                 const msg = await ch.send({ content: `<@&${MIDDLEMAN_ROLE}>`, embeds: [embed], components: [createIndexBtns(id, false)] });
                 client.tickets.set(id, { channelId: ch.id, messageId: msg.id, creatorId: interaction.user.id, type: 'skin', claimed: false, claimedBy: null, addedUsers: [] });
