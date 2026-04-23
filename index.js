@@ -37,7 +37,6 @@ function createIndexBtns(id, claimed) {
     );
 }
 
-// ==================== SLASH COMMANDS ====================
 const commands = [
     new SlashCommandBuilder().setName('ticketpanel').setDescription('Spawn MM ticket panel').setDefaultMemberPermissions(PermissionFlagsBits.Administrator).toJSON(),
     new SlashCommandBuilder().setName('indexpanel').setDescription('Spawn index ticket panel').setDefaultMemberPermissions(PermissionFlagsBits.Administrator).toJSON(),
@@ -48,21 +47,27 @@ const commands = [
 
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
-client.once('ready', async () => {
+client.once('clientReady', async () => {
     console.log(`Logged in as ${client.user.tag}`);
     client.user.setActivity('D7 Army Service', { type: 3 });
     const guildId = process.env.GUILD_ID;
     try {
-        if (guildId) await rest.put(Routes.applicationGuildCommands(client.user.id, guildId), { body: commands });
-        else await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-        console.log('Commands registered.');
-    } catch (e) { console.error(e); }
+        if (guildId) {
+            await rest.put(Routes.applicationGuildCommands(client.user.id, guildId), { body: commands });
+            console.log(`✅ Guild commands registered for ${guildId}`);
+        } else {
+            await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
+            console.log('✅ Global commands registered.');
+        }
+    } catch (e) {
+        console.error('❌ Failed to register commands:', e.message);
+        console.log('   → Make sure bot has "applications.commands" scope in OAuth2 invite URL.');
+        console.log('   → Re-invite bot with: https://discord.com/oauth2/authorize?client_id=' + client.user.id + '&permissions=8&scope=bot+applications.commands');
+    }
 });
 
-// ==================== INTERACTIONS ====================
 client.on('interactionCreate', async (interaction) => {
     try {
-        // Slash Commands
         if (interaction.isChatInputCommand()) {
             const { commandName } = interaction;
             if (commandName === 'ticketpanel') {
@@ -103,12 +108,8 @@ client.on('interactionCreate', async (interaction) => {
                 await interaction.reply({ content: `✅ Sent to ${ch}`, ephemeral: true });
             }
         }
-
-        // Buttons
         else if (interaction.isButton()) {
             const [action, ticketId] = interaction.customId.split('_');
-
-            // Spawn MM ticket modal
             if (action === 'spawn' && ticketId === 'mm') {
                 const modal = new ModalBuilder().setCustomId('mm_modal').setTitle('Middleman Ticket');
                 modal.addComponents(
@@ -118,8 +119,6 @@ client.on('interactionCreate', async (interaction) => {
                 );
                 await interaction.showModal(modal);
             }
-
-            // Spawn index selection
             else if (action === 'spawn' && ticketId === 'idx') {
                 const menu = new StringSelectMenuBuilder().setCustomId('idx_select').setPlaceholder('Select service type...').addOptions(
                     new StringSelectMenuOptionBuilder().setLabel('Index Service').setDescription('Purchase an index').setValue('index').setEmoji('📊'),
@@ -127,8 +126,6 @@ client.on('interactionCreate', async (interaction) => {
                 );
                 await interaction.reply({ content: 'Select service type:', components: [new ActionRowBuilder().addComponents(menu)], ephemeral: true });
             }
-
-            // MM Claim
             else if (action === 'claim') {
                 const data = client.tickets.get(ticketId);
                 if (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
@@ -142,8 +139,6 @@ client.on('interactionCreate', async (interaction) => {
                 await msg.edit({ embeds: [emb], components: [createMMBtns(ticketId, true)] });
                 await interaction.reply({ content: `✅ Claimed by <@${interaction.user.id}>`, allowedMentions: { parse: [] } });
             }
-
-            // MM Unclaim
             else if (action === 'unclaim') {
                 const data = client.tickets.get(ticketId);
                 if (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
@@ -158,8 +153,6 @@ client.on('interactionCreate', async (interaction) => {
                 await msg.edit({ embeds: [emb], components: [createMMBtns(ticketId, false)] });
                 await interaction.reply({ content: `✅ Unclaimed by <@${interaction.user.id}>`, allowedMentions: { parse: [] } });
             }
-
-            // MM Close
             else if (action === 'close') {
                 const data = client.tickets.get(ticketId);
                 if (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
@@ -167,8 +160,6 @@ client.on('interactionCreate', async (interaction) => {
                 await interaction.reply({ content: '🔒 Closing in 5s...' });
                 setTimeout(async () => { const ch = interaction.guild.channels.cache.get(data.channelId); if (ch) await ch.delete('Closed'); client.tickets.delete(ticketId); }, 5000);
             }
-
-            // Add User
             else if (action === 'adduser') {
                 const data = client.tickets.get(ticketId);
                 if (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
@@ -177,8 +168,6 @@ client.on('interactionCreate', async (interaction) => {
                 modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('userid').setLabel('Username or ID').setStyle(TextInputStyle.Short).setRequired(true)));
                 await interaction.showModal(modal);
             }
-
-            // Index Claim
             else if (action === 'idxclaim') {
                 const data = client.tickets.get(ticketId);
                 if (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
@@ -192,8 +181,6 @@ client.on('interactionCreate', async (interaction) => {
                 await msg.edit({ embeds: [emb], components: [createIndexBtns(ticketId, true)] });
                 await interaction.reply({ content: `✅ Claimed by <@${interaction.user.id}>`, allowedMentions: { parse: [] } });
             }
-
-            // Index Unclaim
             else if (action === 'idxunclaim') {
                 const data = client.tickets.get(ticketId);
                 if (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
@@ -208,8 +195,6 @@ client.on('interactionCreate', async (interaction) => {
                 await msg.edit({ embeds: [emb], components: [createIndexBtns(ticketId, false)] });
                 await interaction.reply({ content: `✅ Unclaimed by <@${interaction.user.id}>`, allowedMentions: { parse: [] } });
             }
-
-            // Index Close
             else if (action === 'idxclose') {
                 const data = client.tickets.get(ticketId);
                 if (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
@@ -218,8 +203,6 @@ client.on('interactionCreate', async (interaction) => {
                 setTimeout(async () => { const ch = interaction.guild.channels.cache.get(data.channelId); if (ch) await ch.delete('Closed'); client.tickets.delete(ticketId); }, 5000);
             }
         }
-
-        // Select Menus
         else if (interaction.isStringSelectMenu()) {
             if (interaction.customId === 'idx_select') {
                 const val = interaction.values[0];
@@ -242,13 +225,9 @@ client.on('interactionCreate', async (interaction) => {
                 }
             }
         }
-
-        // Modals
         else if (interaction.isModalSubmit()) {
             const guild = interaction.guild;
             const settings = client.settings.get(guild.id) || {};
-
-            // MM Ticket
             if (interaction.customId === 'mm_modal') {
                 const cat = settings.ticketCategory;
                 if (!cat) return interaction.reply({ content: '❌ Set category with /ticketcategory first!', ephemeral: true });
@@ -273,8 +252,6 @@ client.on('interactionCreate', async (interaction) => {
                 client.tickets.set(id, { channelId: ch.id, messageId: msg.id, creatorId: interaction.user.id, type: 'mm', claimed: false, claimedBy: null, addedUsers: [] });
                 await interaction.reply({ content: `✅ Ticket created! <#${ch.id}>`, ephemeral: true });
             }
-
-            // Add User
             else if (interaction.customId.startsWith('adduser_')) {
                 const tid = interaction.customId.split('_')[1];
                 const data = client.tickets.get(tid);
@@ -293,8 +270,6 @@ client.on('interactionCreate', async (interaction) => {
                 await ch.send(`✅ Added <@${member.id}> to ticket.`);
                 await interaction.reply({ content: `✅ Added ${member.user.tag}`, ephemeral: true });
             }
-
-            // Index Service
             else if (interaction.customId === 'idx_modal') {
                 const cat = settings.indexCategory;
                 if (!cat) return interaction.reply({ content: '❌ Set category with /indexcategory first!', ephemeral: true });
@@ -320,8 +295,6 @@ client.on('interactionCreate', async (interaction) => {
                 client.tickets.set(id, { channelId: ch.id, messageId: msg.id, creatorId: interaction.user.id, type: 'index', claimed: false, claimedBy: null, addedUsers: [] });
                 await interaction.reply({ content: `✅ Index ticket created! <#${ch.id}>`, ephemeral: true });
             }
-
-            // Base Skin
             else if (interaction.customId === 'skin_modal') {
                 const cat = settings.indexCategory;
                 if (!cat) return interaction.reply({ content: '❌ Set category with /indexcategory first!', ephemeral: true });
@@ -356,12 +329,10 @@ client.on('interactionCreate', async (interaction) => {
     }
 });
 
-// ==================== PREFIX COMMANDS ====================
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild || !message.content.startsWith('.')) return;
     const args = message.content.slice(1).trim().split(/ +/);
     const cmd = args.shift().toLowerCase();
-
     if (cmd === 'unclaim') {
         if (!isMiddleman(message.member)) return message.reply('❌ Only middlemen!');
         let data = null, tid = null;
@@ -379,7 +350,6 @@ client.on('messageCreate', async (message) => {
         } catch (e) {}
         await message.reply(`✅ Unclaimed by <@${message.author.id}>`);
     }
-
     else if (cmd === 'close') {
         if (!isMiddleman(message.member)) return message.reply('❌ Only middlemen!');
         let data = null, tid = null;
