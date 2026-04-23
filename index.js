@@ -16,8 +16,12 @@ const MIDDLEMAN_ROLE = process.env.MIDDLEMAN_ROLE_ID || '1494798337361186998';
 function isAdmin(member) { return member.roles.cache.has(ADMIN_ROLE) || member.permissions.has('Administrator'); }
 function isMiddleman(member) { return member.roles.cache.has(MIDDLEMAN_ROLE); }
 
-function createEmbed(title, desc) {
+function createPanelEmbed(title, desc) {
     return new EmbedBuilder().setColor(0xFF0000).setTitle(title).setDescription(desc).setImage(IMAGE_URL).setTimestamp().setFooter({ text: 'D7 Army Service', iconURL: IMAGE_URL });
+}
+
+function createTicketEmbed(title, fields) {
+    return new EmbedBuilder().setColor(0xFF0000).setTitle(title).addFields(fields).setFooter({ text: 'D7 Army Service' });
 }
 
 function createMMBtns(id, claimed) {
@@ -54,15 +58,15 @@ client.once('clientReady', async () => {
     try {
         if (guildId) {
             await rest.put(Routes.applicationGuildCommands(client.user.id, guildId), { body: commands });
-            console.log(`✅ Guild commands registered for ${guildId}`);
+            console.log(`Guild commands registered for ${guildId}`);
         } else {
             await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-            console.log('✅ Global commands registered.');
+            console.log('Global commands registered.');
         }
     } catch (e) {
-        console.error('❌ Failed to register commands:', e.message);
-        console.log('   → Make sure bot has "applications.commands" scope in OAuth2 invite URL.');
-        console.log('   → Re-invite bot with: https://discord.com/oauth2/authorize?client_id=' + client.user.id + '&permissions=8&scope=bot+applications.commands');
+        console.error('Failed to register commands:', e.message);
+        console.log('Re-invite bot with applications.commands scope:');
+        console.log(`https://discord.com/oauth2/authorize?client_id=${client.user.id}&permissions=8&scope=bot+applications.commands`);
     }
 });
 
@@ -71,13 +75,13 @@ client.on('interactionCreate', async (interaction) => {
         if (interaction.isChatInputCommand()) {
             const { commandName } = interaction;
             if (commandName === 'ticketpanel') {
-                const embed = createEmbed('__D7 ARMY MM__', "Welcome to D7Army Middleman Service.\nPlease wait patiently for support and try not to ping. Our service is trusted by thousands and we hope we could expand our services so we could encourage other people to start middleman service's like us!\n\n• Allowed Ping 1 time\n• Wait patiently\n• Be respectful to staff's/middleman's\n\nAny type of fraud will be taken to extreme level which will cause a instant ban with blacklist from Kooda's, Liam's, Jace's Etc!\n\nThank's for reading this.");
+                const embed = createPanelEmbed('__D7 ARMY MM__', "Welcome to D7Army Middleman Service.\nPlease wait patiently for support and try not to ping. Our service is trusted by thousands and we hope we could expand our services so we could encourage other people to start middleman service's like us!\n\n• Allowed Ping 1 time\n• Wait patiently\n• Be respectful to staff's/middleman's\n\nAny type of fraud will be taken to extreme level which will cause a instant ban with blacklist from Kooda's, Liam's, Jace's Etc!\n\nThank's for reading this.");
                 const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('spawn_mm').setLabel('Create Ticket').setStyle(ButtonStyle.Success).setEmoji('🎫'));
                 await interaction.reply({ content: 'Panel spawned!', ephemeral: true });
                 await interaction.channel.send({ embeds: [embed], components: [row] });
             }
             else if (commandName === 'indexpanel') {
-                const embed = createEmbed('Indexing Service D7 Army!', "Welcome to our indexing service, we provide with indexes, and base skin's. To purchase a index or a base skin. Create a ticket and wait patiently for answer.\n\n• Always you go first\n• Listen to the middleman\n• Any type of fraud is instant ban\n\nThank's for using our service!");
+                const embed = createPanelEmbed('Indexing Service D7 Army!', "Welcome to our indexing service, we provide with indexes, and base skin's. To purchase a index or a base skin. Create a ticket and wait patiently for answer.\n\n• Always you go first\n• Listen to the middleman\n• Any type of fraud is instant ban\n\nThank's for using our service!");
                 const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('spawn_idx').setLabel('Create Index Ticket').setStyle(ButtonStyle.Success).setEmoji('📋'));
                 await interaction.reply({ content: 'Panel spawned!', ephemeral: true });
                 await interaction.channel.send({ embeds: [embed], components: [row] });
@@ -88,7 +92,7 @@ client.on('interactionCreate', async (interaction) => {
                 if (!cat || cat.type !== 4) return interaction.reply({ content: 'Invalid category ID!', ephemeral: true });
                 if (!client.settings.has(interaction.guild.id)) client.settings.set(interaction.guild.id, {});
                 client.settings.get(interaction.guild.id).ticketCategory = id;
-                await interaction.reply({ content: `✅ MM category set to **${cat.name}**`, ephemeral: true });
+                await interaction.reply({ content: `MM category set to **${cat.name}**`, ephemeral: true });
             }
             else if (commandName === 'indexcategory') {
                 const id = interaction.options.getString('id');
@@ -96,7 +100,7 @@ client.on('interactionCreate', async (interaction) => {
                 if (!cat || cat.type !== 4) return interaction.reply({ content: 'Invalid category ID!', ephemeral: true });
                 if (!client.settings.has(interaction.guild.id)) client.settings.set(interaction.guild.id, {});
                 client.settings.get(interaction.guild.id).indexCategory = id;
-                await interaction.reply({ content: `✅ Index category set to **${cat.name}**`, ephemeral: true });
+                await interaction.reply({ content: `Index category set to **${cat.name}**`, ephemeral: true });
             }
             else if (commandName === 'say') {
                 const ch = interaction.options.getChannel('channel');
@@ -105,7 +109,7 @@ client.on('interactionCreate', async (interaction) => {
                 if (ping === 'everyone') msg = '@everyone ' + msg;
                 else if (ping === 'here') msg = '@here ' + msg;
                 await ch.send(msg);
-                await interaction.reply({ content: `✅ Sent to ${ch}`, ephemeral: true });
+                await interaction.reply({ content: `Sent to ${ch}`, ephemeral: true });
             }
         }
         else if (interaction.isButton()) {
@@ -135,9 +139,11 @@ client.on('interactionCreate', async (interaction) => {
                 const ch = interaction.guild.channels.cache.get(data.channelId);
                 if (ch) await ch.permissionOverwrites.edit(interaction.user.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true });
                 const msg = await interaction.channel.messages.fetch(data.messageId);
-                const emb = EmbedBuilder.from(msg.embeds[0]).addFields({ name: 'Claimed By', value: `<@${interaction.user.id}>`, inline: true });
+                const fields = msg.embeds[0].fields.filter(f => f.name !== 'Claimed By');
+                fields.push({ name: 'Claimed By', value: `<@${interaction.user.id}>`, inline: true });
+                const emb = createTicketEmbed(`Ticket ${ticketId}`, fields);
                 await msg.edit({ embeds: [emb], components: [createMMBtns(ticketId, true)] });
-                await interaction.reply({ content: `✅ Claimed by <@${interaction.user.id}>`, allowedMentions: { parse: [] } });
+                await interaction.reply({ content: `Claimed by <@${interaction.user.id}>`, allowedMentions: { parse: [] } });
             }
             else if (action === 'unclaim') {
                 const data = client.tickets.get(ticketId);
@@ -149,16 +155,19 @@ client.on('interactionCreate', async (interaction) => {
                 const ch = interaction.guild.channels.cache.get(data.channelId);
                 if (ch) await ch.permissionOverwrites.delete(interaction.user.id);
                 const msg = await interaction.channel.messages.fetch(data.messageId);
-                const emb = EmbedBuilder.from(msg.embeds[0]).setFields(msg.embeds[0].fields.filter(f => f.name !== 'Claimed By'));
+                const fields = msg.embeds[0].fields.filter(f => f.name !== 'Claimed By');
+                const emb = createTicketEmbed(`Ticket ${ticketId}`, fields);
                 await msg.edit({ embeds: [emb], components: [createMMBtns(ticketId, false)] });
-                await interaction.reply({ content: `✅ Unclaimed by <@${interaction.user.id}>`, allowedMentions: { parse: [] } });
+                await interaction.reply({ content: `Unclaimed by <@${interaction.user.id}>`, allowedMentions: { parse: [] } });
             }
             else if (action === 'close') {
                 const data = client.tickets.get(ticketId);
                 if (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
                 if (!isMiddleman(interaction.member)) return interaction.reply({ content: 'Only middlemen!', ephemeral: true });
-                await interaction.reply({ content: '🔒 Closing in 5s...' });
-                setTimeout(async () => { const ch = interaction.guild.channels.cache.get(data.channelId); if (ch) await ch.delete('Closed'); client.tickets.delete(ticketId); }, 5000);
+                const ch = interaction.guild.channels.cache.get(data.channelId);
+                if (ch) await ch.delete('Closed');
+                client.tickets.delete(ticketId);
+                await interaction.reply({ content: 'Ticket closed.' });
             }
             else if (action === 'adduser') {
                 const data = client.tickets.get(ticketId);
@@ -177,9 +186,11 @@ client.on('interactionCreate', async (interaction) => {
                 const ch = interaction.guild.channels.cache.get(data.channelId);
                 if (ch) await ch.permissionOverwrites.edit(interaction.user.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true });
                 const msg = await interaction.channel.messages.fetch(data.messageId);
-                const emb = EmbedBuilder.from(msg.embeds[0]).addFields({ name: 'Claimed By', value: `<@${interaction.user.id}>`, inline: true });
+                const fields = msg.embeds[0].fields.filter(f => f.name !== 'Claimed By');
+                fields.push({ name: 'Claimed By', value: `<@${interaction.user.id}>`, inline: true });
+                const emb = createTicketEmbed(`Ticket ${ticketId}`, fields);
                 await msg.edit({ embeds: [emb], components: [createIndexBtns(ticketId, true)] });
-                await interaction.reply({ content: `✅ Claimed by <@${interaction.user.id}>`, allowedMentions: { parse: [] } });
+                await interaction.reply({ content: `Claimed by <@${interaction.user.id}>`, allowedMentions: { parse: [] } });
             }
             else if (action === 'idxunclaim') {
                 const data = client.tickets.get(ticketId);
@@ -191,16 +202,19 @@ client.on('interactionCreate', async (interaction) => {
                 const ch = interaction.guild.channels.cache.get(data.channelId);
                 if (ch) await ch.permissionOverwrites.delete(interaction.user.id);
                 const msg = await interaction.channel.messages.fetch(data.messageId);
-                const emb = EmbedBuilder.from(msg.embeds[0]).setFields(msg.embeds[0].fields.filter(f => f.name !== 'Claimed By'));
+                const fields = msg.embeds[0].fields.filter(f => f.name !== 'Claimed By');
+                const emb = createTicketEmbed(`Ticket ${ticketId}`, fields);
                 await msg.edit({ embeds: [emb], components: [createIndexBtns(ticketId, false)] });
-                await interaction.reply({ content: `✅ Unclaimed by <@${interaction.user.id}>`, allowedMentions: { parse: [] } });
+                await interaction.reply({ content: `Unclaimed by <@${interaction.user.id}>`, allowedMentions: { parse: [] } });
             }
             else if (action === 'idxclose') {
                 const data = client.tickets.get(ticketId);
                 if (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
                 if (!isMiddleman(interaction.member)) return interaction.reply({ content: 'Only middlemen!', ephemeral: true });
-                await interaction.reply({ content: '🔒 Closing in 5s...' });
-                setTimeout(async () => { const ch = interaction.guild.channels.cache.get(data.channelId); if (ch) await ch.delete('Closed'); client.tickets.delete(ticketId); }, 5000);
+                const ch = interaction.guild.channels.cache.get(data.channelId);
+                if (ch) await ch.delete('Closed');
+                client.tickets.delete(ticketId);
+                await interaction.reply({ content: 'Ticket closed.' });
             }
         }
         else if (interaction.isStringSelectMenu()) {
@@ -230,7 +244,7 @@ client.on('interactionCreate', async (interaction) => {
             const settings = client.settings.get(guild.id) || {};
             if (interaction.customId === 'mm_modal') {
                 const cat = settings.ticketCategory;
-                if (!cat) return interaction.reply({ content: '❌ Set category with /ticketcategory first!', ephemeral: true });
+                if (!cat) return interaction.reply({ content: 'Set category with /ticketcategory first!', ephemeral: true });
                 const trader = interaction.fields.getTextInputValue('trader');
                 const desc = interaction.fields.getTextInputValue('desc');
                 const rules = interaction.fields.getTextInputValue('rules');
@@ -241,16 +255,15 @@ client.on('interactionCreate', async (interaction) => {
                     { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
                     { id: MIDDLEMAN_ROLE, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
                 ]});
-                const embed = new EmbedBuilder().setColor(0xFF0000).setTitle(`Ticket ${id}`).addFields(
+                const embed = createTicketEmbed(`Ticket ${id}`, [
                     { name: '👤 Creator', value: `<@${interaction.user.id}>`, inline: true },
                     { name: '🔗 Other Trader', value: `\`\`\`${trader}\`\`\``, inline: true },
                     { name: '📝 Description', value: desc },
-                    { name: '✅ Rules', value: rules, inline: true },
-                    { name: '⏰ Created', value: `<t:${Math.floor(Date.now()/1000)}:F>`, inline: true }
-                ).setImage(IMAGE_URL).setTimestamp().setFooter({ text: 'D7 Army MM' });
+                    { name: '✅ Rules', value: rules, inline: true }
+                ]);
                 const msg = await ch.send({ content: `<@&${MIDDLEMAN_ROLE}>`, embeds: [embed], components: [createMMBtns(id, false)] });
                 client.tickets.set(id, { channelId: ch.id, messageId: msg.id, creatorId: interaction.user.id, type: 'mm', claimed: false, claimedBy: null, addedUsers: [] });
-                await interaction.reply({ content: `✅ Ticket created! <#${ch.id}>`, ephemeral: true });
+                await interaction.reply({ content: `Ticket created! <#${ch.id}>`, ephemeral: true });
             }
             else if (interaction.customId.startsWith('adduser_')) {
                 const tid = interaction.customId.split('_')[1];
@@ -261,18 +274,18 @@ client.on('interactionCreate', async (interaction) => {
                 if (/^\d{17,19}$/.test(input)) member = await guild.members.fetch(input).catch(() => null);
                 if (!member && input.startsWith('<@')) member = await guild.members.fetch(input.replace(/[<@!>]/g, '')).catch(() => null);
                 if (!member) member = guild.members.cache.find(m => m.user.username.toLowerCase() === input.toLowerCase() || m.user.tag.toLowerCase() === input.toLowerCase());
-                if (!member) return interaction.reply({ content: '❌ User not found!', ephemeral: true });
+                if (!member) return interaction.reply({ content: 'User not found!', ephemeral: true });
                 const ch = guild.channels.cache.get(data.channelId);
-                if (!ch) return interaction.reply({ content: '❌ Channel not found!', ephemeral: true });
+                if (!ch) return interaction.reply({ content: 'Channel not found!', ephemeral: true });
                 await ch.permissionOverwrites.edit(member.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true });
                 if (!data.addedUsers) data.addedUsers = [];
                 data.addedUsers.push(member.id); client.tickets.set(tid, data);
-                await ch.send(`✅ Added <@${member.id}> to ticket.`);
-                await interaction.reply({ content: `✅ Added ${member.user.tag}`, ephemeral: true });
+                await ch.send(`Added <@${member.id}> to ticket.`);
+                await interaction.reply({ content: `Added ${member.user.tag}`, ephemeral: true });
             }
             else if (interaction.customId === 'idx_modal') {
                 const cat = settings.indexCategory;
-                if (!cat) return interaction.reply({ content: '❌ Set category with /indexcategory first!', ephemeral: true });
+                if (!cat) return interaction.reply({ content: 'Set category with /indexcategory first!', ephemeral: true });
                 const what = interaction.fields.getTextInputValue('what');
                 const pay = interaction.fields.getTextInputValue('pay');
                 const first = interaction.fields.getTextInputValue('first');
@@ -283,21 +296,20 @@ client.on('interactionCreate', async (interaction) => {
                     { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
                     { id: MIDDLEMAN_ROLE, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
                 ]});
-                const embed = new EmbedBuilder().setColor(0xFF0000).setTitle(`Index Ticket ${id}`).addFields(
+                const embed = createTicketEmbed(`Index Ticket ${id}`, [
                     { name: '👤 Creator', value: `<@${interaction.user.id}>`, inline: true },
                     { name: '📊 Type', value: 'Index Service', inline: true },
                     { name: '🔍 Indexing', value: what },
                     { name: '💰 Payment', value: pay },
-                    { name: '✅ Go First', value: first, inline: true },
-                    { name: '⏰ Created', value: `<t:${Math.floor(Date.now()/1000)}:F>`, inline: true }
-                ).setImage(IMAGE_URL).setTimestamp().setFooter({ text: 'D7 Army Index' });
+                    { name: '✅ Go First', value: first, inline: true }
+                ]);
                 const msg = await ch.send({ content: `<@&${MIDDLEMAN_ROLE}>`, embeds: [embed], components: [createIndexBtns(id, false)] });
                 client.tickets.set(id, { channelId: ch.id, messageId: msg.id, creatorId: interaction.user.id, type: 'index', claimed: false, claimedBy: null, addedUsers: [] });
-                await interaction.reply({ content: `✅ Index ticket created! <#${ch.id}>`, ephemeral: true });
+                await interaction.reply({ content: `Index ticket created! <#${ch.id}>`, ephemeral: true });
             }
             else if (interaction.customId === 'skin_modal') {
                 const cat = settings.indexCategory;
-                if (!cat) return interaction.reply({ content: '❌ Set category with /indexcategory first!', ephemeral: true });
+                if (!cat) return interaction.reply({ content: 'Set category with /indexcategory first!', ephemeral: true });
                 const which = interaction.fields.getTextInputValue('which');
                 const payment = interaction.fields.getTextInputValue('payment');
                 const agree = interaction.fields.getTextInputValue('agree');
@@ -308,22 +320,21 @@ client.on('interactionCreate', async (interaction) => {
                     { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
                     { id: MIDDLEMAN_ROLE, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
                 ]});
-                const embed = new EmbedBuilder().setColor(0xFF0000).setTitle(`Base Skin Ticket ${id}`).addFields(
+                const embed = createTicketEmbed(`Base Skin Ticket ${id}`, [
                     { name: '👤 Creator', value: `<@${interaction.user.id}>`, inline: true },
                     { name: '🎨 Type', value: 'Base Skin', inline: true },
                     { name: '🔍 Looking For', value: which },
                     { name: '💰 Payment', value: payment },
-                    { name: '✅ Go First', value: agree, inline: true },
-                    { name: '⏰ Created', value: `<t:${Math.floor(Date.now()/1000)}:F>`, inline: true }
-                ).setImage(IMAGE_URL).setTimestamp().setFooter({ text: 'D7 Army Index' });
+                    { name: '✅ Go First', value: agree, inline: true }
+                ]);
                 const msg = await ch.send({ content: `<@&${MIDDLEMAN_ROLE}>`, embeds: [embed], components: [createIndexBtns(id, false)] });
                 client.tickets.set(id, { channelId: ch.id, messageId: msg.id, creatorId: interaction.user.id, type: 'skin', claimed: false, claimedBy: null, addedUsers: [] });
-                await interaction.reply({ content: `✅ Base skin ticket created! <#${ch.id}>`, ephemeral: true });
+                await interaction.reply({ content: `Base skin ticket created! <#${ch.id}>`, ephemeral: true });
             }
         }
     } catch (e) {
         console.error(e);
-        const reply = { content: '❌ Error!', ephemeral: true };
+        const reply = { content: 'Error!', ephemeral: true };
         if (interaction.replied || interaction.deferred) await interaction.followUp(reply);
         else await interaction.reply(reply);
     }
@@ -334,29 +345,32 @@ client.on('messageCreate', async (message) => {
     const args = message.content.slice(1).trim().split(/ +/);
     const cmd = args.shift().toLowerCase();
     if (cmd === 'unclaim') {
-        if (!isMiddleman(message.member)) return message.reply('❌ Only middlemen!');
+        if (!isMiddleman(message.member)) return message.reply('Only middlemen!');
         let data = null, tid = null;
         for (const [id, d] of client.tickets) { if (d.channelId === message.channel.id) { data = d; tid = id; break; } }
-        if (!data) return message.reply('❌ Not a ticket channel!');
-        if (!data.claimed) return message.reply('❌ Not claimed!');
-        if (data.claimedBy !== message.author.id) return message.reply('❌ Only claimed MM!');
+        if (!data) return message.reply('Not a ticket channel!');
+        if (!data.claimed) return message.reply('Not claimed!');
+        if (data.claimedBy !== message.author.id) return message.reply('Only claimed MM!');
         data.claimed = false; data.claimedBy = null; client.tickets.set(tid, data);
         await message.channel.permissionOverwrites.delete(message.author.id);
         try {
             const msg = await message.channel.messages.fetch(data.messageId);
-            const emb = EmbedBuilder.from(msg.embeds[0]).setFields(msg.embeds[0].fields.filter(f => f.name !== 'Claimed By'));
+            const fields = msg.embeds[0].fields.filter(f => f.name !== 'Claimed By');
+            const emb = createTicketEmbed(`Ticket ${tid}`, fields);
             const btns = data.type === 'mm' ? createMMBtns(tid, false) : createIndexBtns(tid, false);
             await msg.edit({ embeds: [emb], components: [btns] });
         } catch (e) {}
-        await message.reply(`✅ Unclaimed by <@${message.author.id}>`);
+        await message.reply(`Unclaimed by <@${message.author.id}>`);
     }
     else if (cmd === 'close') {
-        if (!isMiddleman(message.member)) return message.reply('❌ Only middlemen!');
+        if (!isMiddleman(message.member)) return message.reply('Only middlemen!');
         let data = null, tid = null;
         for (const [id, d] of client.tickets) { if (d.channelId === message.channel.id) { data = d; tid = id; break; } }
-        if (!data) return message.reply('❌ Not a ticket channel!');
-        await message.reply('🔒 Closing in 5s...');
-        setTimeout(async () => { const ch = message.guild.channels.cache.get(data.channelId); if (ch) await ch.delete('Closed'); client.tickets.delete(tid); }, 5000);
+        if (!data) return message.reply('Not a ticket channel!');
+        const ch = message.guild.channels.cache.get(data.channelId);
+        if (ch) await ch.delete('Closed');
+        client.tickets.delete(tid);
+        await message.reply('Ticket closed.');
     }
 });
 
