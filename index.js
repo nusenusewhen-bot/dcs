@@ -44,20 +44,22 @@ function isMiddleman(member) {
 }
 
 function createPanelEmbed(title, desc) {
-    return new EmbedBuilder()
-        .setColor(0xFF0000)
-        .setTitle(title)
-        .setDescription(desc)
-        .setImage(IMAGE_URL)
-        .setFooter({ text: 'D7 Army Service', iconURL: IMAGE_URL });
+    return {
+        color: 0xFF0000,
+        title: title,
+        description: desc,
+        image: { url: IMAGE_URL },
+        footer: { text: 'D7 Army Service', icon_url: IMAGE_URL }
+    };
 }
 
 function createTicketEmbed(title, fields) {
-    return new EmbedBuilder()
-        .setColor(0xFF0000)
-        .setTitle(title)
-        .addFields(fields)
-        .setFooter({ text: 'D7 Army Service' });
+    return {
+        color: 0xFF0000,
+        title: title,
+        fields: fields,
+        footer: { text: 'D7 Army Service' }
+    };
 }
 
 function createMMBtns(id, claimed) {
@@ -146,7 +148,7 @@ client.on('interactionCreate', async (interaction) => {
                 if (ping === 'everyone') msg = '@everyone ' + msg;
                 else if (ping === 'here') msg = '@here ' + msg;
                 if (embedOpt && embedOpt.toLowerCase() === 'y') {
-                    const embed = new EmbedBuilder().setColor(0xFF0000).setDescription(msg).setFooter({ text: 'D7 Army Service' });
+                    const embed = { color: 0xFF0000, description: msg, footer: { text: 'D7 Army Service' } };
                     await ch.send({ embeds: [embed] });
                 } else {
                     await ch.send(msg);
