@@ -113,14 +113,16 @@ client.on('interactionCreate', async (interaction) => {
         if (interaction.isChatInputCommand()) {
             const { commandName } = interaction;
             if (commandName === 'ticketpanel') {
+                await interaction.reply({ content: 'Test ticket panel', ephemeral: true });
                 const embed = createPanelEmbed('__D7 ARMY MM__', 'Welcome to D7Army Middleman Service.\nPlease wait patiently for support and try not to ping. Our service is trusted by thousands and we hope we could expand our services so we could encourage other people to start middleman services like us!\n\n- Allowed Ping 1 time\n- Wait patiently\n- Be respectful to staff/middlemen\n\nAny type of fraud will be taken to extreme level which will cause an instant ban with blacklist from Kooda\'s, Liam\'s, Jace\'s Etc!\n\nThanks for reading this.');
                 const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('spawn_mm').setLabel('Create Ticket').setStyle(ButtonStyle.Success).setEmoji('ð«'));
-                await interaction.reply({ embeds: [embed], components: [row] });
+                await interaction.channel.send({ embeds: [embed], components: [row] });
             }
             else if (commandName === 'indexpanel') {
+                await interaction.reply({ content: 'Test index panel', ephemeral: true });
                 const embed = createPanelEmbed('Indexing Service D7 Army!', 'Welcome to our indexing service, we provide indexes and base skins. To purchase an index or a base skin, create a ticket and wait patiently for an answer.\n\n- Always you go first\n- Listen to the middleman\n- Any type of fraud is instant ban\n\nThanks for using our service!');
                 const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('spawn_idx').setLabel('Create Index Ticket').setStyle(ButtonStyle.Success).setEmoji('ð'));
-                await interaction.reply({ embeds: [embed], components: [row] });
+                await interaction.channel.send({ embeds: [embed], components: [row] });
             }
             else if (commandName === 'ticketcategory') {
                 const id = interaction.options.getString('id');
