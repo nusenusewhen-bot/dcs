@@ -1,5 +1,6 @@
 const { Client, GatewayIntentBits, Partials, REST, Routes, SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, ChannelType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
 require('dotenv').config();
+const fs = require('fs');
 
 const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers],
@@ -9,28 +10,23 @@ const client = new Client({
 client.tickets = new Map();
 client.settings = new Map();
 
-// Load saved settings if exists
-const fs = require('fs');
-const SETTINGS_FILE = './Settings.json';
+const SETTINGS_FILE = './settings.json';
+
 try {
-    const Saved = require(SETTINGS_FILE);
-    for (const [guildId, settings] of Object.entries(Saved)) {
-        client.settings.set(guildId, {
-            ticketCategory: settings.ticketCategory || null,
-            indexCategory: settings.indexCategory || null
-        });
+    if (fs.existsSync(SETTINGS_FILE)) {
+        const saved = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+        for (const [guildId, settings] of Object.entries(saved)) {
+            client.settings.set(guildId, settings);
+        }
     }
 } catch(e) {
     console.log('No saved settings found, starting fresh.');
 }
 
-function SaveSettings() {
+function saveSettings() {
     const obj = {};
     for (const [guildId, settings] of client.settings) {
-        obj[guildId] = {
-            ticketCategory: settings.ticketCategory || null,
-            indexCategory: settings.indexCategory || null
-        };
+        obj[guildId] = settings;
     }
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(obj, null, 2));
 }
@@ -42,11 +38,12 @@ const MIDDLEMAN_ROLE = process.env.MIDDLEMAN_ROLE_ID || '1494798337361186998';
 function isAdmin(member) { 
     return member.roles.cache.has(ADMIN_ROLE) || member.permissions.has('Administrator'); 
 }
+
 function isMiddleman(member) { 
     return member.roles.cache.has(MIDDLEMAN_ROLE); 
 }
 
-function CreatePanelEmbed(title, desc) {
+function createPanelEmbed(title, desc) {
     return new EmbedBuilder()
         .setColor(0xFF0000)
         .setTitle(title)
@@ -55,7 +52,7 @@ function CreatePanelEmbed(title, desc) {
         .setFooter({ text: 'D7 Army Service', iconURL: IMAGE_URL });
 }
 
-function CreateTicketEmbed(title, fields) {
+function createTicketEmbed(title, fields) {
     return new EmbedBuilder()
         .setColor(0xFF0000)
         .setTitle(title)
@@ -72,7 +69,7 @@ function createMMBtns(id, claimed) {
     );
 }
 
-function CreateIndexBtns(id, claimed) {
+function createIndexBtns(id, claimed) {
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`idxclaim_${id}`).setLabel('Claim').setStyle(claimed ? ButtonStyle.Secondary : ButtonStyle.Success).setDisabled(claimed),
         new ButtonBuilder().setCustomId(`idxunclaim_${id}`).setLabel('Unclaim').setStyle(ButtonStyle.Danger).setDisabled(!claimed),
@@ -95,7 +92,7 @@ client.once('ready', async () => {
     client.user.setActivity('D7 Army Service', { type: 3 });
     const guildId = process.env.GUILD_ID;
     try {
-        If (guildId) {
+        if (guildId) {
             await rest.put(Routes.applicationGuildCommands(client.user.id, guildId), { body: commands });
             console.log(`Guild commands registered for ${guildId}`);
         } else {
@@ -111,46 +108,46 @@ client.once('ready', async () => {
 
 client.on('interactionCreate', async (interaction) => {
     try {
-        If (interaction.isChatInputCommand()) {
+        if (interaction.isChatInputCommand()) {
             const { commandName } = interaction;
             if (commandName === 'ticketpanel') {
-                const embed = CreatePanelEmbed('__D7 ARMY MM__', "Welcome to D7Army Middleman Service.\nPlease wait patiently for support and try not to ping. Our Service is trusted by thousands and we hope we could expand our services so we could encourage other people to start middleman services like us!\n\nâ¢ Allowed Ping 1 time\nâ¢ Wait patiently\nâ¢ Be respectful to staff/middlemen\n\nAny type of fraud will be taken to extreme level which will cause an instant ban with blacklist from Kooda's, Liam's, Jace's Etc!\n\nThank's for reading this.");
+                const embed = createPanelEmbed('__D7 ARMY MM__', "Welcome to D7Army Middleman Service.\nPlease wait patiently for support and try not to ping. Our service is trusted by thousands and we hope we could expand our services so we could encourage other people to start middleman services like us!\n\n- Allowed Ping 1 time\n- Wait patiently\n- Be respectful to staff/middlemen\n\nAny type of fraud will be taken to extreme level which will cause an instant ban with blacklist from Kooda's, Liam's, Jace's Etc!\n\nThanks for reading this.");
                 const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('spawn_mm').setLabel('Create Ticket').setStyle(ButtonStyle.Success).setEmoji('ð«'));
                 await interaction.reply({ content: 'Panel spawned!', ephemeral: true });
                 await interaction.channel.send({ embeds: [embed], components: [row] });
             }
-            else If (commandName === 'indexpanel') {
-                const embed = CreatePanelEmbed('Indexing Service D7 Army!', "Welcome to our indexing service, we provide indexes and base skins. To purchase an index or a base skin, create a ticket and wait patiently for an answer.\n\nâ¢ Always you go first\nâ¢ Listen to the middleman\nâ¢ Any type of fraud is instant ban\n\nThank's for using our service!");
+            else if (commandName === 'indexpanel') {
+                const embed = createPanelEmbed('Indexing Service D7 Army!', "Welcome to our indexing service, we provide indexes and base skins. To purchase an index or a base skin, create a ticket and wait patiently for an answer.\n\n- Always you go first\n- Listen to the middleman\n- Any type of fraud is instant ban\n\nThanks for using our service!");
                 const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('spawn_idx').setLabel('Create Index Ticket').setStyle(ButtonStyle.Success).setEmoji('ð'));
                 await interaction.reply({ content: 'Panel spawned!', ephemeral: true });
                 await interaction.channel.send({ embeds: [embed], components: [row] });
             }
-            else If (commandName === 'ticketcategory') {
+            else if (commandName === 'ticketcategory') {
                 const id = interaction.options.getString('id');
                 const cat = interaction.guild.channels.cache.get(id);
-                If (!cat || cat.type !== 4) return interaction.reply({ content: 'Invalid category ID!', ephemeral: true });
-                If (!client.settings.has(interaction.guild.id)) client.settings.set(interaction.guild.id, {});
+                if (!cat || cat.type !== 4) return interaction.reply({ content: 'Invalid category ID!', ephemeral: true });
+                if (!client.settings.has(interaction.guild.id)) client.settings.set(interaction.guild.id, {});
                 client.settings.get(interaction.guild.id).ticketCategory = id;
-                SaveSettings();
+                saveSettings();
                 await interaction.reply({ content: `MM category set to **${cat.name}**`, ephemeral: true });
             }
-            else If (commandName === 'indexcategory') {
+            else if (commandName === 'indexcategory') {
                 const id = interaction.options.getString('id');
-                const cat = interaction.guild.guild.channels.cache.get(id);
-                If (!cat || cat.type !== 4) return interaction.reply({ content: 'Invalid category ID!', ephemeral: true });
-                If (!client.settings.has(interaction.guild.id)) client.settings.set(interaction.guild.id, {});
+                const cat = interaction.guild.channels.cache.get(id);
+                if (!cat || cat.type !== 4) return interaction.reply({ content: 'Invalid category ID!', ephemeral: true });
+                if (!client.settings.has(interaction.guild.id)) client.settings.set(interaction.guild.id, {});
                 client.settings.get(interaction.guild.id).indexCategory = id;
-                SaveSettings();
+                saveSettings();
                 await interaction.reply({ content: `Index category set to **${cat.name}**`, ephemeral: true });
             }
-            else If (commandName === 'say') {
+            else if (commandName === 'say') {
                 const ch = interaction.options.getChannel('channel');
-                Let msg = interaction.options.getString('message');
+                let msg = interaction.options.getString('message');
                 const ping = interaction.options.getString('ping');
                 const embedOpt = interaction.options.getString('embed');
-                If (ping === 'everyone') msg = '@everyone ' + msg;
-                Else If (ping === 'here') msg = '@here ' + msg;
-                If (embedOpt && embedOpt.toLowerCase() === 'y') {
+                if (ping === 'everyone') msg = '@everyone ' + msg;
+                else if (ping === 'here') msg = '@here ' + msg;
+                if (embedOpt && embedOpt.toLowerCase() === 'y') {
                     const embed = new EmbedBuilder().setColor(0xFF0000).setDescription(msg).setFooter({ text: 'D7 Army Service' });
                     await ch.send({ embeds: [embed] });
                 } else {
@@ -159,9 +156,9 @@ client.on('interactionCreate', async (interaction) => {
                 await interaction.reply({ content: `Sent to ${ch}`, ephemeral: true });
             }
         }
-        else If (interaction.isButton()) {
+        else if (interaction.isButton()) {
             const [action, ticketId] = interaction.customId.split('_');
-            If (action === 'spawn' && ticketId === 'mm') {
+            if (action === 'spawn' && ticketId === 'mm') {
                 const modal = new ModalBuilder().setCustomId('mm_modal').setTitle('Middleman Ticket');
                 modal.addComponents(
                     new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('trader').setLabel('User/ID Of Other Trader').setStyle(TextInputStyle.Short).setRequired(true)),
@@ -170,112 +167,115 @@ client.on('interactionCreate', async (interaction) => {
                 );
                 await interaction.showModal(modal);
             }
-            else If (action === 'spawn' && ticketId === 'idx') {
-                const menu = new StringSelectMenuBuilder().setCustomId('Idx_select').setPlaceholder('Select service type...').addOptions(
+            else if (action === 'spawn' && ticketId === 'idx') {
+                const menu = new StringSelectMenuBuilder().setCustomId('idx_select').setPlaceholder('Select service type...').addOptions(
                     new StringSelectMenuOptionBuilder().setLabel('Index Service').setDescription('Purchase an index').setValue('index').setEmoji('ð'),
                     new StringSelectMenuOptionBuilder().setLabel('Base Skin').setDescription('Purchase a base skin').setValue('skin').setEmoji('ð¨')
                 );
-                await interaction.reply({ content: 'Select Service Type:', components: [new ActionRowBuilder().addComponents(menu)], ephemeral: true });
+                await interaction.reply({ content: 'Select service type:', components: [new ActionRowBuilder().addComponents(menu)], ephemeral: true });
             }
-            else If (action === 'claim') {
+            else if (action === 'claim') {
                 const data = client.tickets.get(ticketId);
-                If (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
-                If (!IsMiddleman(interaction.member)) return interaction.reply({ content: 'Only middlemen!', ephemeral: true });
-                If (data.claimed) return interaction.reply({ content: 'Already claimed!', ephemeral: true });
+                if (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
+                if (!isMiddleman(interaction.member)) return interaction.reply({ content: 'Only middlemen!', ephemeral: true });
+                if (data.claimed) return interaction.reply({ content: 'Already claimed!', ephemeral: true });
                 data.claimed = true; data.claimedBy = interaction.user.id; client.tickets.set(ticketId, data);
                 const ch = interaction.guild.channels.cache.get(data.channelId);
-                If (ch) await ch.permissionOverwrites.edit(interaction.user.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true });
+                if (ch) await ch.permissionOverwrites.edit(interaction.user.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true });
                 const msg = await interaction.channel.messages.fetch(data.messageId);
                 const fields = msg.embeds[0].fields.filter(f => f.name !== 'Claimed By');
                 fields.push({ name: 'Claimed By', value: `<@${interaction.user.id}>`, inline: true });
-                const emb = CreateTicketEmbed(`Ticket ${ticketId}`, fields);
+                const emb = createTicketEmbed(`Ticket ${ticketId}`, fields);
                 await msg.edit({ embeds: [emb], components: [createMMBtns(ticketId, true)] });
                 await interaction.reply({ content: `Claimed by <@${interaction.user.id}>`, allowedMentions: { parse: [] } });
             }
-            else If (action === 'unclaim') {
+            else if (action === 'unclaim') {
                 const data = client.tickets.get(ticketId);
-                If (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
-                If (!IsMiddleman(interaction.member)) return interaction.reply({ content: 'Only middlemen!', ephemeral: true });
-                If (!data.claimed) return interaction.reply({ content: 'Not claimed!', ephemeral: true });
-                If (data.claimedBy !== interaction.user.id) return interaction.reply({ content: 'Only claimed MM!', ephemeral: ephemeral true });
+                if (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
+                if (!isMiddleman(interaction.member)) return interaction.reply({ content: 'Only middlemen!', ephemeral: true });
+                if (!data.claimed) return interaction.reply({ content: 'Not claimed!', ephemeral: true });
+                if (data.claimedBy !== interaction.user.id) return interaction.reply({ content: 'Only claimed MM!', ephemeral: true });
                 data.claimed = false; data.claimedBy = null; client.tickets.set(ticketId, data);
                 const ch = interaction.guild.channels.cache.get(data.channelId);
-                If (ch) await ch.permissionOverwrites.delete(interaction.user.id);
+                if (ch) await ch.permissionOverwrites.delete(interaction.user.id);
                 const msg = await interaction.channel.messages.fetch(data.messageId);
-                const Fields = msg.embeds[0].fields.filter(f => f.name !== 'Claimed By');
-                const emb = CreateTicketEmbed(`Ticket ${ticketId}`, fields);
+                const fields = msg.embeds[0].fields.filter(f => f.name !== 'Claimed By');
+                const emb = createTicketEmbed(`Ticket ${ticketId}`, fields);
                 await msg.edit({ embeds: [emb], components: [createMMBtns(ticketId, false)] });
                 await interaction.reply({ content: `Unclaimed by <@${interaction.user.id}>`, allowedMentions: { parse: [] } });
             }
-            else If (action === 'close') {
+            else if (action === 'close') {
                 const data = client.tickets.get(ticketId);
-                If (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
-                If (!IsMiddleman(interaction.member)) return interaction.reply({ content: 'Only middlemen!', ephemeral: true });
+                if (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
+                if (!isMiddleman(interaction.member)) return interaction.reply({ content: 'Only middlemen!', ephemeral: true });
                 const ch = interaction.guild.channels.cache.get(data.channelId);
-                If (ch) await ch.delete('Closed');
+                if (ch) await ch.delete('Closed');
                 client.tickets.delete(ticketId);
                 await interaction.reply({ content: 'Ticket closed.' });
             }
-            else If (action === 'adduser') {
+            else if (action === 'adduser') {
                 const data = client.tickets.get(ticketId);
-                If (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
-                If (!IsMiddleman(interaction.member)) return interaction.reply({ content: 'Only middlemen!', ephemeral: true });
+                if (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
+                if (!isMiddleman(interaction.member)) return interaction.reply({ content: 'Only middlemen!', ephemeral: true });
                 const modal = new ModalBuilder().setCustomId(`adduser_${ticketId}`).setTitle('Add User to Ticket');
                 modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('userid').setLabel('Username or ID').setStyle(TextInputStyle.Short).setRequired(true)));
                 await interaction.showModal(modal);
             }
-            else If (action === 'idxclaim') {
+            else if (action === 'idxclaim') {
                 const data = client.tickets.get(ticketId);
-                If (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
-                If (!IsMiddleman(interaction.member)) return interaction.reply({ content: 'Only middlemen!', ephemeral: true });
-                If (data.claimed) return interaction.reply({ content: 'Already claimed!', ephemeral: true });
+                if (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
+                if (!isMiddleman(interaction.member)) return interaction.reply({ content: 'Only middlemen!', ephemeral: true });
+                if (data.claimed) return interaction.reply({ content: 'Already claimed!', ephemeral: true });
                 data.claimed = true; data.claimedBy = interaction.user.id; client.tickets.set(ticketId, data);
                 const ch = interaction.guild.channels.cache.get(data.channelId);
-                If (ch) await ch.permissionOverwrites.edit(interaction.user.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true });
+                if (ch) await ch.permissionOverwrites.edit(interaction.user.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true });
                 const msg = await interaction.channel.messages.fetch(data.messageId);
                 const fields = msg.embeds[0].fields.filter(f => f.name !== 'Claimed By');
                 fields.push({ name: 'Claimed By', value: `<@${interaction.user.id}>`, inline: true });
-                const emb = CreateTicketEmbed(`Ticket ${ticketId}`, fields);
+                const emb = createTicketEmbed(`Ticket ${ticketId}`, fields);
                 await msg.edit({ embeds: [emb], components: [createIndexBtns(ticketId, true)] });
                 await interaction.reply({ content: `Claimed by <@${interaction.user.id}>`, allowedMentions: { parse: [] } });
             }
-            else If (action === 'Idxunclaim') {
+            else if (action === 'idxunclaim') {
                 const data = client.tickets.get(ticketId);
-                If (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
-                If (!IsMiddleman(interaction.member)) return interaction.reply({ content: 'Only middlemen!', ephemeral: true });
-                If (!data.claimed) return interaction.reply({ content: 'Not claimed!', ephemeral: true });
-                If (data.claimedBy !== interaction.user.id) return interaction.reply({ content: 'Only claimed MM!', ephemeral: true });
+                if (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
+                if (!isMiddleman(interaction.member)) return interaction.reply({ content: 'Only middlemen!', ephemeral: true });
+                if (!data.claimed) return interaction.reply({ content: 'Not claimed!', ephemeral: true });
+                if (data.claimedBy !== interaction.user.id) return interaction.reply({ content: 'Only claimed MM!', ephemeral: true });
                 data.claimed = false; data.claimedBy = null; client.tickets.set(ticketId, data);
-                const ch = interaction.guild.channels.channels.cache.get(data.channelId);
-                If (ch) await ch.delete('Closed');
-                client.tickets.delete(ticketId);
-                await interaction.reply({ content: 'Ticket closed.' });
-            }
-            else If (action === 'Idxclose') {
-                const data = client.tickets.get(ticketId);
-                If (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
-                If (!IsMiddleman(interaction.member)) return interaction.reply({ content: 'Only middlemen!', ephemeral: true });
                 const ch = interaction.guild.channels.cache.get(data.channelId);
-                If (ch) await ch.delete('Closed');
+                if (ch) await ch.permissionOverwrites.delete(interaction.user.id);
+                const msg = await interaction.channel.messages.fetch(data.messageId);
+                const fields = msg.embeds[0].fields.filter(f => f.name !== 'Claimed By');
+                const emb = createTicketEmbed(`Ticket ${ticketId}`, fields);
+                await msg.edit({ embeds: [emb], components: [createIndexBtns(ticketId, false)] });
+                await interaction.reply({ content: `Unclaimed by <@${interaction.user.id}>`, allowedMentions: { parse: [] } });
+            }
+            else if (action === 'idxclose') {
+                const data = client.tickets.get(ticketId);
+                if (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
+                if (!isMiddleman(interaction.member)) return interaction.reply({ content: 'Only middlemen!', ephemeral: true });
+                const ch = interaction.guild.channels.cache.get(data.channelId);
+                if (ch) await ch.delete('Closed');
                 client.tickets.delete(ticketId);
                 await interaction.reply({ content: 'Ticket closed.' });
             }
         }
-        else If (interaction.isStringSelectMenu()) {
-            If (interaction.customId === 'Idx_select') {
+        else if (interaction.isStringSelectMenu()) {
+            if (interaction.customId === 'idx_select') {
                 const val = interaction.values[0];
-                If (val === 'index') {
-                    Const modal = new ModalBuilder().setCustomId('Idx_modal').setTitle('Index Service');
+                if (val === 'index') {
+                    const modal = new ModalBuilder().setCustomId('idx_modal').setTitle('Index Service');
                     modal.addComponents(
                         new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('what').setLabel('What are you indexing?').setStyle(TextInputStyle.Short).setRequired(true)),
-                        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('pay').setLabel('What are you paying?').setStyleStyle(TextInputStyle.short).setRequired(true)),
+                        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('pay').setLabel('What are you paying?').setStyle(TextInputStyle.Short).setRequired(true)),
                         new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('first').setLabel('Do you agree on going first?').setStyle(TextInputStyle.Short).setRequired(true))
                     );
                     await interaction.showModal(modal);
-                } else If (val === 'skin') {
-                    Const modal = new ModalBuilder().setCustomId('skin_modal').setTitle('Base Skin');
+                } else if (val === 'skin') {
+                    const modal = new ModalBuilder().setCustomId('skin_modal').setTitle('Base Skin');
                     modal.addComponents(
-                        new ActionRowRowBuilder().addComponents(new TextInputBuilder().setCustomId('which').setLabel('Which base skin?').setStyle(TextInputStyle.Short).setRequired(true)),
+                        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('which').setLabel('Which base skin?').setStyle(TextInputStyle.Short).setRequired(true)),
                         new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('payment').setLabel('Which payment?').setStyle(TextInputStyle.Short).setRequired(true)),
                         new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('agree').setLabel('Do you agree on going first?').setStyle(TextInputStyle.Short).setRequired(true))
                     );
@@ -283,12 +283,12 @@ client.on('interactionCreate', async (interaction) => {
                 }
             }
         }
-        else If (interaction.isModalSubmit()) {
+        else if (interaction.isModalSubmit()) {
             const guild = interaction.guild;
             const settings = client.settings.get(guild.id) || {};
-            If (interaction.customId === 'mm_modal') {
+            if (interaction.customId === 'mm_modal') {
                 const cat = settings.ticketCategory;
-                If (!cat) return interaction.reply({ content: 'Set category with /ticketcategory first!', ephemeral: true });
+                if (!cat) return interaction.reply({ content: 'Set category with /ticketcategory first!', ephemeral: true });
                 const trader = interaction.fields.getTextInputValue('trader');
                 const desc = interaction.fields.getTextInputValue('desc');
                 const rules = interaction.fields.getTextInputValue('rules');
@@ -309,35 +309,35 @@ client.on('interactionCreate', async (interaction) => {
                 client.tickets.set(id, { channelId: ch.id, messageId: msg.id, creatorId: interaction.user.id, type: 'mm', claimed: false, claimedBy: null, addedUsers: [] });
                 await interaction.reply({ content: `Ticket created! <#${ch.id}>`, ephemeral: true });
             }
-            else If (interaction.customId.startsWith('adduser_')) {
+            else if (interaction.customId.startsWith('adduser_')) {
                 const tid = interaction.customId.split('_')[1];
                 const data = client.tickets.get(tid);
-                If (!data) return interaction.reply({ content: 'Ticket not saved!', ephemeral: true });
+                if (!data) return interaction.reply({ content: 'Ticket not found!', ephemeral: true });
                 const input = interaction.fields.getTextInputValue('userid');
-                Let member = null;
-                If (/^\d{17,19}$/.test(input)) member = await guild.members.fetch(input).catch(() => null);
-                If (!member && input.startsWith('<@')) member = await guild.members.fetch(input.replace(/[<@!>]/g, '')).catch(() => null);
-                If (!member) member = guild.members.cache.find(m => m.user.username.toLowerCase() === input.toLowerCase() || m.user.tag.toLowerCase() === input.toLowerCase());
-                If (!member) return interaction.reply({ content: 'User not found!', ephemeral: true });
-                Const ch = guild.channels.cache.get(data.channelId);
-                If (!ch) return interaction.reply({ content: 'Channel not found!', ephemeral: true });
+                let member = null;
+                if (/^\d{17,19}$/.test(input)) member = await guild.members.fetch(input).catch(() => null);
+                if (!member && input.startsWith('<@')) member = await guild.members.fetch(input.replace(/[<@!>]/g, '')).catch(() => null);
+                if (!member) member = guild.members.cache.find(m => m.user.username.toLowerCase() === input.toLowerCase() || m.user.tag.toLowerCase() === input.toLowerCase());
+                if (!member) return interaction.reply({ content: 'User not found!', ephemeral: true });
+                const ch = guild.channels.cache.get(data.channelId);
+                if (!ch) return interaction.reply({ content: 'Channel not found!', ephemeral: true });
                 await ch.permissionOverwrites.edit(member.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true });
-                If (!data.addedUsers) data.addedUsers = [];
+                if (!data.addedUsers) data.addedUsers = [];
                 data.addedUsers.push(member.id); client.tickets.set(tid, data);
                 await ch.send(`Added <@${member.id}> to ticket.`);
                 await interaction.reply({ content: `Added ${member.user.tag}`, ephemeral: true });
             }
-            else If (interaction.customId === 'Idx_modal') {
+            else if (interaction.customId === 'idx_modal') {
                 const cat = settings.indexCategory;
-                If (!cat) return interaction.reply({ content: 'Set category with /indexcategory first!', ephemeral: true });
+                if (!cat) return interaction.reply({ content: 'Set category with /indexcategory first!', ephemeral: true });
                 const what = interaction.fields.getTextInputValue('what');
                 const pay = interaction.fields.getTextInputValue('pay');
                 const first = interaction.fields.getTextInputValue('first');
                 const num = (client.tickets.size + 1).toString().padStart(4, '0');
-                const id = `Idx-${num}`;
+                const id = `idx-${num}`;
                 const ch = await guild.channels.create({ name: `index-${id}`, type: ChannelType.GuildText, parent: cat, permissionOverwrites: [
                     { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
-                    { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+                    { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
                     { id: MIDDLEMAN_ROLE, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
                 ]});
                 const embed = createTicketEmbed(`Index Ticket ${id}`, [
@@ -351,18 +351,18 @@ client.on('interactionCreate', async (interaction) => {
                 client.tickets.set(id, { channelId: ch.id, messageId: msg.id, creatorId: interaction.user.id, type: 'index', claimed: false, claimedBy: null, addedUsers: [] });
                 await interaction.reply({ content: `Index ticket created! <#${ch.id}>`, ephemeral: true });
             }
-            else If (interaction.customId === 'skin_modal') {
+            else if (interaction.customId === 'skin_modal') {
                 const cat = settings.indexCategory;
-                If (!cat) return interaction.reply({ content: 'Set category with /indexcategory first!', ephemeral: true });
+                if (!cat) return interaction.reply({ content: 'Set category with /indexcategory first!', ephemeral: true });
                 const which = interaction.fields.getTextInputValue('which');
                 const payment = interaction.fields.getTextInputValue('payment');
-                const agree = interaction.fields.getValue('agree');
+                const agree = interaction.fields.getTextInputValue('agree');
                 const num = (client.tickets.size + 1).toString().padStart(4, '0');
                 const id = `bs-${num}`;
                 const ch = await guild.channels.create({ name: `base-${id}`, type: ChannelType.GuildText, parent: cat, permissionOverwrites: [
-                    { id: guild.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
-                    { id: interaction.user.id, allow: [PermissionFlagsBits.ViewViewChannel, PermissionFlagsBits.SendMessages, PermissionBitsBits.ReadMessageHistory] },
-                    { id: MIDDLEMAN_ROLE, allow: [PermissionFlagsBits.ViewChannel, PermissionBitsBits.SendMessages, PermissionBitsBits.ReadMessageHistory] }
+                    { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+                    { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+                    { id: MIDDLEMAN_ROLE, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
                 ]});
                 const embed = createTicketEmbed(`Base Skin Ticket ${id}`, [
                     { name: 'ð¤ Creator', value: `<@${interaction.user.id}>`, inline: true },
@@ -371,7 +371,7 @@ client.on('interactionCreate', async (interaction) => {
                     { name: 'ð° Payment', value: payment },
                     { name: 'â Go First', value: agree, inline: true }
                 ]);
-                const msg = await ch.send({ content: `<@&${MIDDLEMAN_ROLE}>`, embeds [embed], components: [createIndexBtns(id, false)] });
+                const msg = await ch.send({ content: `<@&${MIDDLEMAN_ROLE}>`, embeds: [embed], components: [createIndexBtns(id, false)] });
                 client.tickets.set(id, { channelId: ch.id, messageId: msg.id, creatorId: interaction.user.id, type: 'skin', claimed: false, claimedBy: null, addedUsers: [] });
                 await interaction.reply({ content: `Base skin ticket created! <#${ch.id}>`, ephemeral: true });
             }
@@ -379,40 +379,40 @@ client.on('interactionCreate', async (interaction) => {
     } catch (e) {
         console.error(e);
         const reply = { content: 'Error!', ephemeral: true };
-        If (interaction.replied || interaction.deferred) await interaction.followUp(reply);
-        Else await interaction.reply(reply);
+        if (interaction.replied || interaction.deferred) await interaction.followUp(reply);
+        else await interaction.reply(reply);
     }
 });
 
 client.on('messageCreate', async (message) => {
-    If (message.author.bot || !message.guild || !message.content.startsWith('.')) return;
+    if (message.author.bot || !message.guild || !message.content.startsWith('.')) return;
     const args = message.content.slice(1).trim().split(/ +/);
     const cmd = args.shift().toLowerCase();
-    If (cmd === 'unclaim') {
-        If (!isMiddleman(message.member)) return message.reply('Only middlemen!');
-        Let data = null, tid = null;
+    if (cmd === 'unclaim') {
+        if (!isMiddleman(message.member)) return message.reply('Only middlemen!');
+        let data = null, tid = null;
         for (const [id, d] of client.tickets) { if (d.channelId === message.channel.id) { data = d; tid = id; break; } }
-        If (!data) return message.reply('Not a ticket channel!');
-        If (!data.claimed) return message.reply('Not claimed!');
-        If (data.claimedBy !== message.author.id) return message.reply('Only claimed MM!');
+        if (!data) return message.reply('Not a ticket channel!');
+        if (!data.claimed) return message.reply('Not claimed!');
+        if (data.claimedBy !== message.author.id) return message.reply('Only claimed MM!');
         data.claimed = false; data.claimedBy = null; client.tickets.set(tid, data);
         await message.channel.permissionOverwrites.delete(message.author.id);
         try {
-            Const msg = await message.channel.messages.fetch(data.messageId);
-            Const fields = msg.embeds[0].fields.filter(f => f.name !== 'Claimed By');
-            Const emb = CreateTicketEmbed(`Ticket ${tid}`, fields);
-            Const btns = data.type === 'mm' ? createMMBtns(tid, false) : createIndexBtns(tid, false);
+            const msg = await message.channel.messages.fetch(data.messageId);
+            const fields = msg.embeds[0].fields.filter(f => f.name !== 'Claimed By');
+            const emb = createTicketEmbed(`Ticket ${tid}`, fields);
+            const btns = data.type === 'mm' ? createMMBtns(tid, false) : createIndexBtns(tid, false);
             await msg.edit({ embeds: [emb], components: [btns] });
         } catch (e) {}
         await message.reply(`Unclaimed by <@${message.author.id}>`);
     }
-    Else If (cmd === 'close') {
-        If (!IsMiddleman(message.member)) return message.reply('Only middlemen!');
-        Let data = null, tid = null;
-        for (const [id, d] of client.tickets) { if (d.channelId === message.channel.id) { data = d; tid = type } }
-        If (!data) return message.reply('Not a ticket channel!');
-        Const ch = message.guild.channels.cache.get(data.channelId);
-        If (ch) await ch.delete('Closed');
+    else if (cmd === 'close') {
+        if (!isMiddleman(message.member)) return message.reply('Only middlemen!');
+        let data = null, tid = null;
+        for (const [id, d] of client.tickets) { if (d.channelId === message.channel.id) { data = d; tid = id; break; } }
+        if (!data) return message.reply('Not a ticket channel!');
+        const ch = message.guild.channels.cache.get(data.channelId);
+        if (ch) await ch.delete('Closed');
         client.tickets.delete(tid);
         await message.reply('Ticket closed.');
     }
