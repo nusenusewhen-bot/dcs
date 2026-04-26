@@ -302,10 +302,10 @@ client.on('interactionCreate', async (interaction) => {
                     { id: MIDDLEMAN_ROLE, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
                 ]});
                 const embed = createTicketEmbed(`Ticket ${id}`, [
-                    { name: 'ð¤ Creator', value: `<@${interaction.user.id}>`, inline: true },
-                    { name: 'ð Other Trader', value: '\`\`\`' + trader + '\`\`\`', inline: true },
-                    { name: 'ð Description', value: desc },
-                    { name: 'â Rules', value: rules, inline: true }
+                    { name: ':bust_in_silhouette: Creator', value: `<@${interaction.user.id}>`, inline: true },
+                    { name: ':link: Other Trader', value: '\`\`\`' + trader + '\`\`\`', inline: true },
+                    { name: ':memo: Description', value: desc },
+                    { name: ':white_check_mark: Rules', value: rules, inline: true }
                 ]);
                 const msg = await ch.send({ content: `<@&${MIDDLEMAN_ROLE}>`, embeds: [embed], components: [createMMBtns(id, false)] });
                 client.tickets.set(id, { channelId: ch.id, messageId: msg.id, creatorId: interaction.user.id, type: 'mm', claimed: false, claimedBy: null, addedUsers: [] });
@@ -343,11 +343,11 @@ client.on('interactionCreate', async (interaction) => {
                     { id: MIDDLEMAN_ROLE, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
                 ]});
                 const embed = createTicketEmbed(`Index Ticket ${id}`, [
-                    { name: 'ð¤ Creator', value: `<@${interaction.user.id}>`, inline: true },
-                    { name: 'ð Type', value: 'Index Service', inline: true },
-                    { name: 'ð Indexing', value: what },
-                    { name: 'ð° Payment', value: pay },
-                    { name: 'â Go First', value: first, inline: true }
+                    { name: ':bust_in_silhouette: Creator', value: `<@${interaction.user.id}>`, inline: true },
+                    { name: ':bar_chart: Type', value: 'Index Service', inline: true },
+                    { name: ':mag: Indexing', value: what },
+                    { name: ':moneybag: Payment', value: pay },
+                    { name: ':white_check_mark: Go First', value: first, inline: true }
                 ]);
                 const msg = await ch.send({ content: `<@&${MIDDLEMAN_ROLE}>`, embeds: [embed], components: [createIndexBtns(id, false)] });
                 client.tickets.set(id, { channelId: ch.id, messageId: msg.id, creatorId: interaction.user.id, type: 'index', claimed: false, claimedBy: null, addedUsers: [] });
@@ -367,11 +367,11 @@ client.on('interactionCreate', async (interaction) => {
                     { id: MIDDLEMAN_ROLE, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
                 ]});
                 const embed = createTicketEmbed(`Base Skin Ticket ${id}`, [
-                    { name: 'ð¤ Creator', value: `<@${interaction.user.id}>`, inline: true },
-                    { name: 'ð¨ Type', value: 'Base Skin', inline: true },
-                    { name: 'ð Looking For', value: which },
-                    { name: 'ð° Payment', value: payment },
-                    { name: 'â Go First', value: agree, inline: true }
+                    { name: ':bust_in_silhouette: Creator', value: `<@${interaction.user.id}>`, inline: true },
+                    { name: ':art: Type', value: 'Base Skin', inline: true },
+                    { name: ':mag: Looking For', value: which },
+                    { name: ':moneybag: Payment', value: payment },
+                    { name: ':white_check_mark: Go First', value: agree, inline: true }
                 ]);
                 const msg = await ch.send({ content: `<@&${MIDDLEMAN_ROLE}>`, embeds: [embed], components: [createIndexBtns(id, false)] });
                 client.tickets.set(id, { channelId: ch.id, messageId: msg.id, creatorId: interaction.user.id, type: 'skin', claimed: false, claimedBy: null, addedUsers: [] });
