@@ -79,7 +79,7 @@ function saveAutoPing() {
     fs.writeFileSync(AUTOPING_FILE, JSON.stringify(obj, null, 2));
 }
 
-const IMAGE_URL = 'https://ibb.co/23crp0CS';
+const IMAGE_URL = 'https://i.postimg.cc/kXMZyyG5/IMG-4619.jpg';
 const ADMIN_ROLE = process.env.ADMIN_ROLE_ID || '1463189207282356276';
 const MIDDLEMAN_ROLE = process.env.MIDDLEMAN_ROLE_ID || '1494798337361186998';
 
