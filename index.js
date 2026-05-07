@@ -9,9 +9,16 @@ const client = new Client({
 
 client.tickets = new Map();
 client.settings = new Map();
+client.autoSayTimers = new Map(); // guildId_channelId -> { message, interval, timer }
+client.autoPingTimers = new Map(); // guildId_channelId -> { pingType, interval, timer }
+client.afkUsers = new Map(); // userId -> { reason, originalNickname }
+client.ticketActivity = new Map(); // channelId -> lastMessageTimestamp
 
 const SETTINGS_FILE = './settings.json';
+const AUTOSAY_FILE = './autosay.json';
+const AUTOPING_FILE = './autoping.json';
 
+// Load settings
 try {
     if (fs.existsSync(SETTINGS_FILE)) {
         const saved = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
@@ -23,6 +30,30 @@ try {
     console.log('No saved settings found, starting fresh.');
 }
 
+// Load auto-say configs
+try {
+    if (fs.existsSync(AUTOSAY_FILE)) {
+        const saved = JSON.parse(fs.readFileSync(AUTOSAY_FILE, 'utf-8'));
+        for (const [key, config] of Object.entries(saved)) {
+            client.autoSayTimers.set(key, config);
+        }
+    }
+} catch(e) {
+    console.log('No saved autosay configs found.');
+}
+
+// Load auto-ping configs
+try {
+    if (fs.existsSync(AUTOPING_FILE)) {
+        const saved = JSON.parse(fs.readFileSync(AUTOPING_FILE, 'utf-8'));
+        for (const [key, config] of Object.entries(saved)) {
+            client.autoPingTimers.set(key, config);
+        }
+    }
+} catch(e) {
+    console.log('No saved autoping configs found.');
+}
+
 function saveSettings() {
     const obj = {};
     for (const [guildId, settings] of client.settings) {
@@ -31,7 +62,24 @@ function saveSettings() {
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(obj, null, 2));
 }
 
-const IMAGE_URL = 'https://i.ibb.co/gLFB3BGn/d7army.png';
+function saveAutoSay() {
+    const obj = {};
+    for (const [key, config] of client.autoSayTimers) {
+        // Don't save timer object, just config
+        obj[key] = { message: config.message, interval: config.interval, guildId: config.guildId, channelId: config.channelId };
+    }
+    fs.writeFileSync(AUTOSAY_FILE, JSON.stringify(obj, null, 2));
+}
+
+function saveAutoPing() {
+    const obj = {};
+    for (const [key, config] of client.autoPingTimers) {
+        obj[key] = { pingType: config.pingType, interval: config.interval, guildId: config.guildId, channelId: config.channelId };
+    }
+    fs.writeFileSync(AUTOPING_FILE, JSON.stringify(obj, null, 2));
+}
+
+const IMAGE_URL = 'https://ibb.co/23crp0CS';
 const ADMIN_ROLE = process.env.ADMIN_ROLE_ID || '1463189207282356276';
 const MIDDLEMAN_ROLE = process.env.MIDDLEMAN_ROLE_ID || '1494798337361186998';
 
@@ -49,7 +97,7 @@ function createPanelEmbed(title, desc) {
         title: title,
         description: desc,
         image: { url: IMAGE_URL },
-        footer: { text: 'D7 Army Service', icon_url: IMAGE_URL }
+        footer: { text: 'Z2U MarketPlace', icon_url: IMAGE_URL }
     };
 }
 
@@ -58,7 +106,7 @@ function createTicketEmbed(title, fields) {
         color: 0xFF0000,
         title: title,
         fields: fields,
-        footer: { text: 'D7 Army Service' }
+        footer: { text: 'Z2U MarketPlace' }
     };
 }
 
@@ -81,17 +129,92 @@ function createIndexBtns(id, claimed) {
 
 const commands = [
     new SlashCommandBuilder().setName('ticketpanel').setDescription('Spawn MM ticket panel').setDefaultMemberPermissions(PermissionFlagsBits.Administrator).toJSON(),
-    new SlashCommandBuilder().setName('indexpanel').setDescription('Spawn index ticket panel').setDefaultMemberPermissions(PermissionFlagsBits.Administrator).toJSON(),
+    new SlashCommandBuilder().setName('indexpanel').setDescription('Spawn Base & Index ticket panel').setDefaultMemberPermissions(PermissionFlagsBits.Administrator).toJSON(),
     new SlashCommandBuilder().setName('ticketcategory').setDescription('Set MM ticket category').setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addStringOption(o => o.setName('id').setDescription('Category ID').setRequired(true)).toJSON(),
-    new SlashCommandBuilder().setName('indexcategory').setDescription('Set index ticket category').setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addStringOption(o => o.setName('id').setDescription('Category ID').setRequired(true)).toJSON(),
-    new SlashCommandBuilder().setName('say').setDescription('Send message as bot').setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addChannelOption(o => o.setName('channel').setDescription('Target channel').setRequired(true).addChannelTypes(ChannelType.GuildText)).addStringOption(o => o.setName('message').setDescription('Message').setRequired(true)).addStringOption(o => o.setName('ping').setDescription('Optional ping').setRequired(false).addChoices({name:'@everyone',value:'everyone'},{name:'@here',value:'here'})).addStringOption(o => o.setName('embed').setDescription('Send as embed? (y/n)').setRequired(false)).toJSON()
+    new SlashCommandBuilder().setName('indexcategory').setDescription('Set Base & Index ticket category').setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addStringOption(o => o.setName('id').setDescription('Category ID').setRequired(true)).toJSON(),
+    new SlashCommandBuilder().setName('say').setDescription('Send message as bot').setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addChannelOption(o => o.setName('channel').setDescription('Target channel').setRequired(true).addChannelTypes(ChannelType.GuildText)).addStringOption(o => o.setName('message').setDescription('Message').setRequired(true)).addStringOption(o => o.setName('ping').setDescription('Optional ping').setRequired(false).addChoices({name:'@everyone',value:'everyone'},{name:'@here',value:'here'})).addStringOption(o => o.setName('embed').setDescription('Send as embed? (y/n)').setRequired(false)).toJSON(),
+    new SlashCommandBuilder().setName('autosay').setDescription('Send recurring message as bot (Admin only)').setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addChannelOption(o => o.setName('channel').setDescription('Target channel').setRequired(true).addChannelTypes(ChannelType.GuildText)).addStringOption(o => o.setName('message').setDescription('Message to send').setRequired(true)).addStringOption(o => o.setName('time').setDescription('Time interval (e.g. 1h, 30m, 1d)').setRequired(true)).toJSON(),
+    new SlashCommandBuilder().setName('afk').setDescription('Set yourself as AFK').addStringOption(o => o.setName('reason').setDescription('AFK reason').setRequired(true)).toJSON(),
+    new SlashCommandBuilder().setName('autoping').setDescription('Send recurring pings in channel (Admin only)').setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addChannelOption(o => o.setName('channel').setDescription('Target channel').setRequired(true).addChannelTypes(ChannelType.GuildText)).addStringOption(o => o.setName('ping').setDescription('Ping type').setRequired(true).addChoices({name:'@everyone',value:'everyone'},{name:'@here',value:'here'})).addStringOption(o => o.setName('time').setDescription('Time interval (e.g. 1h, 30m, 1d)').setRequired(true)).toJSON(),
+    new SlashCommandBuilder().setName('rautoping').setDescription('Remove all auto pings from a channel (Admin only)').setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addChannelOption(o => o.setName('channel').setDescription('Target channel').setRequired(true).addChannelTypes(ChannelType.GuildText)).toJSON()
 ];
 
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
-client.once('clientReady', async () => {
+// Parse time string like "1h", "30m", "1d" to milliseconds
+function parseTime(str) {
+    const match = str.match(/^(\d+)([smhd])$/i);
+    if (!match) return null;
+    const num = parseInt(match[1]);
+    const unit = match[2].toLowerCase();
+    const multipliers = { s: 1000, m: 60000, h: 3600000, d: 86400000 };
+    return num * multipliers[unit];
+}
+
+// Start auto-say timers from saved configs
+function startSavedTimers() {
+    for (const [key, config] of client.autoSayTimers) {
+        if (config.timer) clearInterval(config.timer);
+        const interval = parseTime(config.interval);
+        if (!interval) continue;
+        const timer = setInterval(async () => {
+            const guild = client.guilds.cache.get(config.guildId);
+            if (!guild) return;
+            const channel = guild.channels.cache.get(config.channelId);
+            if (!channel) return;
+            try {
+                await channel.send(config.message);
+            } catch (e) {}
+        }, interval);
+        config.timer = timer;
+    }
+
+    for (const [key, config] of client.autoPingTimers) {
+        if (config.timer) clearInterval(config.timer);
+        const interval = parseTime(config.interval);
+        if (!interval) continue;
+        const timer = setInterval(async () => {
+            const guild = client.guilds.cache.get(config.guildId);
+            if (!guild) return;
+            const channel = guild.channels.cache.get(config.channelId);
+            if (!channel) return;
+            try {
+                const msg = await channel.send(config.pingType === 'everyone' ? '@everyone' : '@here');
+                setTimeout(() => msg.delete().catch(() => {}), 100);
+            } catch (e) {}
+        }, interval);
+        config.timer = timer;
+    }
+}
+
+// Check for inactive tickets (12 hours = 43200000 ms)
+function checkInactiveTickets() {
+    const now = Date.now();
+    const twelveHours = 43200000;
+    for (const [channelId, lastActivity] of client.ticketActivity) {
+        if (now - lastActivity > twelveHours) {
+            // Find and close the ticket
+            for (const [id, data] of client.tickets) {
+                if (data.channelId === channelId) {
+                    const guild = client.guilds.cache.find(g => g.channels.cache.has(channelId));
+                    if (guild) {
+                        const ch = guild.channels.cache.get(channelId);
+                        if (ch) {
+                            ch.delete('Closed due to inactivity (12 hours)').catch(() => {});
+                        }
+                    }
+                    client.tickets.delete(id);
+                    client.ticketActivity.delete(channelId);
+                    break;
+                }
+            }
+        }
+    }
+}
+
+client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}`);
-    client.user.setActivity('D7 Army Service', { type: 3 });
+    client.user.setActivity('Z2U MarketPlace', { type: 3 });
     const guildId = process.env.GUILD_ID;
     try {
         if (guildId) {
@@ -106,6 +229,11 @@ client.once('clientReady', async () => {
         console.log('Re-invite bot with applications.commands scope:');
         console.log(`https://discord.com/oauth2/authorize?client_id=${client.user.id}&permissions=8&scope=bot+applications.commands`);
     }
+
+    startSavedTimers();
+
+    // Check inactive tickets every 5 minutes
+    setInterval(checkInactiveTickets, 300000);
 });
 
 client.on('interactionCreate', async (interaction) => {
@@ -113,15 +241,15 @@ client.on('interactionCreate', async (interaction) => {
         if (interaction.isChatInputCommand()) {
             const { commandName } = interaction;
             if (commandName === 'ticketpanel') {
-                await interaction.reply({ content: 'Test ticket panel', flags: MessageFlags.Ephemeral });
-                const embed = createPanelEmbed('__D7 ARMY MM__', 'Welcome to D7Army Middleman Service.\nPlease wait patiently for support and try not to ping. Our service is trusted by thousands and we hope we could expand our services so we could encourage other people to start middleman services like us!\n\n- Allowed Ping 1 time\n- Wait patiently\n- Be respectful to staff/middlemen\n\nAny type of fraud will be taken to extreme level which will cause an instant ban with blacklist from Kooda\'s, Liam\'s, Jace\'s Etc!\n\nThanks for reading this.');
+                await interaction.reply({ content: 'Ticket panel spawned!', flags: MessageFlags.Ephemeral });
+                const embed = createPanelEmbed('__Z2U MarketPlace MM__', 'Welcome to Z2U MarketPlace Middleman Service.\nPlease wait patiently for support and try not to ping. Our service is trusted by thousands and we hope we could expand our services so we could encourage other people to start middleman services like us!\n\n- Allowed Ping 1 time\n- Wait patiently\n- Be respectful to staff/middlemen\n\nAny type of fraud will be taken to extreme level which will cause an instant ban with blacklist!\n\nThanks for reading this.');
                 const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('spawn_mm').setLabel('Create Ticket').setStyle(ButtonStyle.Success));
                 await interaction.channel.send({ embeds: [embed], components: [row] });
             }
             else if (commandName === 'indexpanel') {
-                await interaction.reply({ content: 'Test index panel', flags: MessageFlags.Ephemeral });
-                const embed = createPanelEmbed('Indexing Service D7 Army!', 'Welcome to our indexing service, we provide indexes and base skins. To purchase an index or a base skin, create a ticket and wait patiently for an answer.\n\n- Always you go first\n- Listen to the middleman\n- Any type of fraud is instant ban\n\nThanks for using our service!');
-                const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('spawn_idx').setLabel('Create Index Ticket').setStyle(ButtonStyle.Success));
+                await interaction.reply({ content: 'Base & Index panel spawned!', flags: MessageFlags.Ephemeral });
+                const embed = createPanelEmbed('Base & Index Request - Z2U MarketPlace!', 'Welcome to our Base & Index service, we provide indexes and base skins. To purchase an index or a base skin, create a ticket and wait patiently for an answer.\n\n- Always you go first\n- Listen to the middleman\n- Any type of fraud is instant ban\n\nThanks for using our service!');
+                const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('spawn_idx').setLabel('Create Base & Index Ticket').setStyle(ButtonStyle.Success));
                 await interaction.channel.send({ embeds: [embed], components: [row] });
             }
             else if (commandName === 'ticketcategory') {
@@ -140,7 +268,7 @@ client.on('interactionCreate', async (interaction) => {
                 if (!client.settings.has(interaction.guild.id)) client.settings.set(interaction.guild.id, {});
                 client.settings.get(interaction.guild.id).indexCategory = id;
                 saveSettings();
-                await interaction.reply({ content: `Index category set to **${cat.name}**`, flags: MessageFlags.Ephemeral });
+                await interaction.reply({ content: `Base & Index category set to **${cat.name}**`, flags: MessageFlags.Ephemeral });
             }
             else if (commandName === 'say') {
                 const ch = interaction.options.getChannel('channel');
@@ -150,12 +278,98 @@ client.on('interactionCreate', async (interaction) => {
                 if (ping === 'everyone') msg = '@everyone ' + msg;
                 else if (ping === 'here') msg = '@here ' + msg;
                 if (embedOpt && embedOpt.toLowerCase() === 'y') {
-                    const embed = { color: 0xFF0000, description: msg, footer: { text: 'D7 Army Service' } };
+                    const embed = { color: 0xFF0000, description: msg, footer: { text: 'Z2U MarketPlace' } };
                     await ch.send({ embeds: [embed] });
                 } else {
                     await ch.send(msg);
                 }
                 await interaction.reply({ content: `Sent to ${ch}`, flags: MessageFlags.Ephemeral });
+            }
+            else if (commandName === 'autosay') {
+                const ch = interaction.options.getChannel('channel');
+                const msg = interaction.options.getString('message');
+                const timeStr = interaction.options.getString('time');
+                const interval = parseTime(timeStr);
+                if (!interval) return interaction.reply({ content: 'Invalid time format! Use format like: 30m, 1h, 2d', flags: MessageFlags.Ephemeral });
+
+                const key = `${interaction.guild.id}_${ch.id}`;
+
+                // Clear existing timer if any
+                if (client.autoSayTimers.has(key)) {
+                    const old = client.autoSayTimers.get(key);
+                    if (old.timer) clearInterval(old.timer);
+                }
+
+                const timer = setInterval(async () => {
+                    try {
+                        await ch.send(msg);
+                    } catch (e) {}
+                }, interval);
+
+                client.autoSayTimers.set(key, { message: msg, interval: timeStr, timer, guildId: interaction.guild.id, channelId: ch.id });
+                saveAutoSay();
+
+                await interaction.reply({ content: `Auto-say set in ${ch} every ${timeStr}.`, flags: MessageFlags.Ephemeral });
+            }
+            else if (commandName === 'afk') {
+                const reason = interaction.options.getString('reason');
+                const member = interaction.member;
+
+                if (client.afkUsers.has(interaction.user.id)) {
+                    return interaction.reply({ content: 'You are already AFK!', flags: MessageFlags.Ephemeral });
+                }
+
+                const originalNick = member.nickname || member.user.username;
+                const afkNick = `[AFK] ${originalNick}`;
+
+                try {
+                    await member.setNickname(afkNick);
+                } catch (e) {}
+
+                client.afkUsers.set(interaction.user.id, { reason, originalNickname: originalNick, guildId: interaction.guild.id });
+                await interaction.reply({ content: `You are now AFK: ${reason}`, flags: MessageFlags.Ephemeral });
+            }
+            else if (commandName === 'autoping') {
+                const ch = interaction.options.getChannel('channel');
+                const pingType = interaction.options.getString('ping');
+                const timeStr = interaction.options.getString('time');
+                const interval = parseTime(timeStr);
+                if (!interval) return interaction.reply({ content: 'Invalid time format! Use format like: 30m, 1h, 2d', flags: MessageFlags.Ephemeral });
+
+                const key = `${interaction.guild.id}_${ch.id}`;
+
+                // Clear existing timer if any
+                if (client.autoPingTimers.has(key)) {
+                    const old = client.autoPingTimers.get(key);
+                    if (old.timer) clearInterval(old.timer);
+                }
+
+                const timer = setInterval(async () => {
+                    try {
+                        const pingMsg = pingType === 'everyone' ? '@everyone' : '@here';
+                        const msg = await ch.send(pingMsg);
+                        setTimeout(() => msg.delete().catch(() => {}), 100);
+                    } catch (e) {}
+                }, interval);
+
+                client.autoPingTimers.set(key, { pingType, interval: timeStr, timer, guildId: interaction.guild.id, channelId: ch.id });
+                saveAutoPing();
+
+                await interaction.reply({ content: `Auto-ping (${pingType}) set in ${ch} every ${timeStr}.`, flags: MessageFlags.Ephemeral });
+            }
+            else if (commandName === 'rautoping') {
+                const ch = interaction.options.getChannel('channel');
+                const key = `${interaction.guild.id}_${ch.id}`;
+
+                if (client.autoPingTimers.has(key)) {
+                    const config = client.autoPingTimers.get(key);
+                    if (config.timer) clearInterval(config.timer);
+                    client.autoPingTimers.delete(key);
+                    saveAutoPing();
+                    await interaction.reply({ content: `Removed auto-ping from ${ch}.`, flags: MessageFlags.Ephemeral });
+                } else {
+                    await interaction.reply({ content: `No auto-ping found in ${ch}.`, flags: MessageFlags.Ephemeral });
+                }
             }
         }
         else if (interaction.isButton()) {
@@ -213,6 +427,7 @@ client.on('interactionCreate', async (interaction) => {
                 const ch = interaction.guild.channels.cache.get(data.channelId);
                 if (ch) await ch.delete('Closed');
                 client.tickets.delete(ticketId);
+                client.ticketActivity.delete(data.channelId);
                 await interaction.reply({ content: 'Ticket closed.' });
             }
             else if (action === 'adduser') {
@@ -260,6 +475,7 @@ client.on('interactionCreate', async (interaction) => {
                 const ch = interaction.guild.channels.cache.get(data.channelId);
                 if (ch) await ch.delete('Closed');
                 client.tickets.delete(ticketId);
+                client.ticketActivity.delete(data.channelId);
                 await interaction.reply({ content: 'Ticket closed.' });
             }
         }
@@ -309,6 +525,7 @@ client.on('interactionCreate', async (interaction) => {
                 ]);
                 const msg = await ch.send({ content: `<@&${MIDDLEMAN_ROLE}>`, embeds: [embed], components: [createMMBtns(id, false)] });
                 client.tickets.set(id, { channelId: ch.id, messageId: msg.id, creatorId: interaction.user.id, type: 'mm', claimed: false, claimedBy: null, addedUsers: [] });
+                client.ticketActivity.set(ch.id, Date.now());
                 await interaction.reply({ content: `Ticket created! <#${ch.id}>`, flags: MessageFlags.Ephemeral });
             }
             else if (interaction.customId.startsWith('adduser_')) {
@@ -327,6 +544,7 @@ client.on('interactionCreate', async (interaction) => {
                 if (!data.addedUsers) data.addedUsers = [];
                 data.addedUsers.push(member.id); client.tickets.set(tid, data);
                 await ch.send(`Added <@${member.id}> to ticket.`);
+                client.ticketActivity.set(ch.id, Date.now());
                 await interaction.reply({ content: `Added ${member.user.tag}`, flags: MessageFlags.Ephemeral });
             }
             else if (interaction.customId === 'idx_modal') {
@@ -351,6 +569,7 @@ client.on('interactionCreate', async (interaction) => {
                 ]);
                 const msg = await ch.send({ content: `<@&${MIDDLEMAN_ROLE}>`, embeds: [embed], components: [createIndexBtns(id, false)] });
                 client.tickets.set(id, { channelId: ch.id, messageId: msg.id, creatorId: interaction.user.id, type: 'index', claimed: false, claimedBy: null, addedUsers: [] });
+                client.ticketActivity.set(ch.id, Date.now());
                 await interaction.reply({ content: `Index ticket created! <#${ch.id}>`, flags: MessageFlags.Ephemeral });
             }
             else if (interaction.customId === 'skin_modal') {
@@ -375,6 +594,7 @@ client.on('interactionCreate', async (interaction) => {
                 ]);
                 const msg = await ch.send({ content: `<@&${MIDDLEMAN_ROLE}>`, embeds: [embed], components: [createIndexBtns(id, false)] });
                 client.tickets.set(id, { channelId: ch.id, messageId: msg.id, creatorId: interaction.user.id, type: 'skin', claimed: false, claimedBy: null, addedUsers: [] });
+                client.ticketActivity.set(ch.id, Date.now());
                 await interaction.reply({ content: `Base skin ticket created! <#${ch.id}>`, flags: MessageFlags.Ephemeral });
             }
         }
@@ -387,9 +607,38 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.on('messageCreate', async (message) => {
-    if (message.author.bot || !message.guild || !message.content.startsWith('.')) return;
+    if (message.author.bot || !message.guild) return;
+
+    // Update ticket activity if message is in a ticket channel
+    if (client.ticketActivity.has(message.channel.id)) {
+        client.ticketActivity.set(message.channel.id, Date.now());
+    }
+
+    // Check for AFK mentions
+    const mentionedUsers = message.mentions.users;
+    for (const [userId, user] of mentionedUsers) {
+        if (client.afkUsers.has(userId)) {
+            const afkData = client.afkUsers.get(userId);
+            await message.reply(`<@${message.author.id}> Please dont ping again current person you pinged is afk Reason: ${afkData.reason}`);
+        }
+    }
+
+    // Check if AFK user sent a message - remove AFK
+    if (client.afkUsers.has(message.author.id)) {
+        const afkData = client.afkUsers.get(message.author.id);
+        const member = message.member;
+        try {
+            await member.setNickname(afkData.originalNickname);
+        } catch (e) {}
+        client.afkUsers.delete(message.author.id);
+        await message.reply(`Welcome back <@${message.author.id}>! Your AFK has been removed.`);
+    }
+
+    // Prefix commands
+    if (!message.content.startsWith('.')) return;
     const args = message.content.slice(1).trim().split(/ +/);
     const cmd = args.shift().toLowerCase();
+
     if (cmd === 'unclaim') {
         if (!isMiddleman(message.member)) return message.reply('Only middlemen!');
         let data = null, tid = null;
@@ -416,6 +665,7 @@ client.on('messageCreate', async (message) => {
         const ch = message.guild.channels.cache.get(data.channelId);
         if (ch) await ch.delete('Closed');
         client.tickets.delete(tid);
+        client.ticketActivity.delete(data.channelId);
         await message.reply('Ticket closed.');
     }
 });
